@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="DevTrack.API/DevTrack.API.csproj" />
+  <Project Path="DevTrack.Application/DevTrack.Application.csproj" />
+  <Project Path="DevTrack.Domain/DevTrack.Domain.csproj" />
+  <Project Path="DevTrack.Infrastructure/DevTrack.Infrastructure.csproj" />
+  <Project Path="DevTrack.Tests/DevTrack.Tests.csproj" />
+</Solution>
