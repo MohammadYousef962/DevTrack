@@ -44,14 +44,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    [Authorize]
-    [HttpGet("whoami")]
-    public IActionResult WhoAmI()
-    {
-        var claims = User.Claims.Select(c => new { c.Type, c.Value });
-        return Ok(claims);
-    }
-
     [Authorize(Roles = "Admin")]
     [HttpGet("admin-only")]
     public IActionResult AdminOnly()

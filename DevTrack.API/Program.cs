@@ -20,7 +20,8 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.AddScoped<IPasswordHasher, PasswordHasherService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITeamService, TeamService>();
 // JWT authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()!;
 
@@ -60,6 +61,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.MapControllers();
