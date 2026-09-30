@@ -1,7 +1,6 @@
 ﻿using DevTrack.Application.DTOs.Auth;
 using DevTrack.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 
 namespace DevTrack.API.Controllers;
 
@@ -19,35 +18,14 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
-        try
-        {
-            var result = await _authService.RegisterAsync(request);
-            return StatusCode(201, result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        var result = await _authService.RegisterAsync(request);
+        return StatusCode(201, result);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
-        try
-        {
-            var result = await _authService.LoginAsync(request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Unauthorized(new { message = ex.Message });
-        }
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpGet("admin-only")]
-    public IActionResult AdminOnly()
-    {
-        return Ok(new { message = "If you can see this, you're an Admin." });
+        var result = await _authService.LoginAsync(request);
+        return Ok(result);
     }
 }

@@ -4,7 +4,7 @@ using DevTrack.Domain.Entities;
 using DevTrack.Domain.Enums;
 using DevTrack.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-
+using DevTrack.Application.Common.Exceptions;
 namespace DevTrack.Infrastructure.Services;
 
 public class TeamService : ITeamService
@@ -141,7 +141,7 @@ public class TeamService : ITeamService
             throw new KeyNotFoundException("User not found.");
 
         if (team.Members.Any(m => m.UserId == newMemberUserId))
-            throw new InvalidOperationException("User is already a member of this team.");
+            throw new ConflictException("User is already a member of this team.");
 
         var member = new TeamMember { TeamId = teamId, UserId = newMemberUserId };
         _db.TeamMembers.Add(member);

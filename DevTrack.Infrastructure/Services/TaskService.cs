@@ -4,7 +4,7 @@ using DevTrack.Domain.Entities;
 using DevTrack.Domain.Enums;
 using DevTrack.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-
+using DevTrack.Application.Common.Models;
 namespace DevTrack.Infrastructure.Services;
 
 public class TaskService : ITaskService
@@ -74,7 +74,7 @@ public class TaskService : ITaskService
         return ToResponse(task, project.Name);
     }
 
-    public async Task<IEnumerable<TaskResponse>> GetAllForUserAsync(int userId, UserRole userRole)
+    public async Task<PagedResult<TaskResponse>> GetAllForUserAsync(int userId, UserRole userRole, TaskQueryParameters parameters)
     {
         IQueryable<TaskItem> query = _db.TaskItems
             .AsNoTracking()
@@ -89,8 +89,50 @@ public class TaskService : ITaskService
                 t.Project.Members.Any(m => m.UserId == userId));
         }
 
-        var tasks = await query.ToListAsync();
-        return tasks.Select(t => ToResponse(t, t.Project.Name));
+        if (!string.IsNullOrWhiteSpace(parameters.Status))
+        {
+            if (!Enum.TryParse<TaskItemStatus>(parameters.Status, ignoreCase: true, out var statusValue))
+                throw new InvalidOperationException($"'{parameters.Status}' is not a valid task status.");
+            query = query.Where(t => t.Status == statusValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(parameters.Priority))
+        {
+            if (!Enum.TryParse<TaskPriority>(parameters.Priority, ignoreCase: true, out var priorityValue))
+                throw new InvalidOperationException($"'{parameters.Priority}' is not a valid task priority.");
+            query = query.Where(t => t.Priority == priorityValue);
+        }
+
+        if (parameters.AssigneeId.HasValue)
+            query = query.Where(t => t.AssigneeId == parameters.AssigneeId.Value);
+
+        if (parameters.ProjectId.HasValue)
+            query = query.Where(t => t.ProjectId == parameters.ProjectId.Value);
+
+        if (!string.IsNullOrWhiteSpace(parameters.Search))
+            query = query.Where(t => t.Title.Contains(parameters.Search)
+                || (t.Description != null && t.Description.Contains(parameters.Search)));
+
+        if (parameters.DueBefore.HasValue)
+            query = query.Where(t => t.DueDate != null && t.DueDate <= parameters.DueBefore.Value);
+
+        if (parameters.DueAfter.HasValue)
+            query = query.Where(t => t.DueDate != null && t.DueDate >= parameters.DueAfter.Value);
+
+        var totalCount = await query.CountAsync();
+
+        var page = parameters.Page < 1 ? 1 : parameters.Page;
+        var pageSize = parameters.PageSize < 1 ? 20 : parameters.PageSize;
+
+        var tasks = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var items = tasks.Select(t => ToResponse(t, t.Project.Name));
+
+        return PagedResult.Create(items, page, pageSize, totalCount);
     }
 
     public async Task<TaskResponse?> GetByIdAsync(int taskId, int userId, UserRole userRole)

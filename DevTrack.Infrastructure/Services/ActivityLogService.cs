@@ -1,4 +1,5 @@
-﻿using DevTrack.Application.DTOs.ActivityLogs;
+﻿using DevTrack.Application.Common.Models;
+using DevTrack.Application.DTOs.ActivityLogs;
 using DevTrack.Application.Interfaces;
 using DevTrack.Domain.Entities;
 using DevTrack.Domain.Enums;
@@ -32,7 +33,7 @@ public class ActivityLogService : IActivityLogService
         await _db.SaveChangesAsync();
     }
 
-    public async Task<PagedActivityLogResponse> GetForProjectAsync(int projectId, int userId, UserRole userRole, int page, int pageSize)
+    public async Task<PagedResult<ActivityLogResponse>> GetForProjectAsync(int projectId, int userId, UserRole userRole, int page, int pageSize)
     {
         var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
         if (project is null)
@@ -67,13 +68,6 @@ public class ActivityLogService : IActivityLogService
             })
             .ToListAsync();
 
-        return new PagedActivityLogResponse
-        {
-            Items = items,
-            CurrentPage = page,
-            PageSize = pageSize,
-            TotalCount = totalCount,
-            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
-        };
+        return PagedResult.Create(items, page, pageSize, totalCount);
     }
 }

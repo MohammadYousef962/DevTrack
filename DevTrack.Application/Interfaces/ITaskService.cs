@@ -1,12 +1,12 @@
 ﻿using DevTrack.Application.DTOs.Tasks;
 using DevTrack.Domain.Enums;
-
+using DevTrack.Application.Common.Models;
 namespace DevTrack.Application.Interfaces;
 
 public interface ITaskService
 {
     Task<TaskResponse> CreateAsync(int userId, UserRole userRole, CreateTaskRequest request);
-    Task<IEnumerable<TaskResponse>> GetAllForUserAsync(int userId, UserRole userRole);
+    Task<PagedResult<TaskResponse>> GetAllForUserAsync(int userId, UserRole userRole, TaskQueryParameters parameters);
     Task<TaskResponse?> GetByIdAsync(int taskId, int userId, UserRole userRole);
     Task<TaskResponse> UpdateAsync(int taskId, int userId, UserRole userRole, UpdateTaskRequest request);
     Task<TaskResponse> UpdateStatusAsync(int taskId, int userId, UserRole userRole, string newStatus);

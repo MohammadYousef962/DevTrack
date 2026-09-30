@@ -23,15 +23,8 @@ public class TeamsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(CreateTeamRequest request)
     {
-        try
-        {
-            var team = await _teamService.CreateAsync(GetUserId(), request);
-            return StatusCode(201, team);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var team = await _teamService.CreateAsync(GetUserId(), request);
+        return StatusCode(201, team);
     }
 
     [HttpGet]
@@ -44,122 +37,46 @@ public class TeamsController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
-        try
-        {
-            var team = await _teamService.GetByIdAsync(id, GetUserId(), GetUserRole());
-            if (team is null) return NotFound();
-            return Ok(team);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
+        var team = await _teamService.GetByIdAsync(id, GetUserId(), GetUserRole());
+        if (team is null) return NotFound();
+        return Ok(team);
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateTeamRequest request)
     {
-        try
-        {
-            var team = await _teamService.UpdateAsync(id, GetUserId(), GetUserRole(), request);
-            return Ok(team);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var team = await _teamService.UpdateAsync(id, GetUserId(), GetUserRole(), request);
+        return Ok(team);
     }
-    private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    private UserRole GetUserRole() => Enum.Parse<UserRole>(User.FindFirstValue(ClaimTypes.Role)!);
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        try
-        {
-            await _teamService.DeleteAsync(id, GetUserId(), GetUserRole());
-            return NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        await _teamService.DeleteAsync(id, GetUserId(), GetUserRole());
+        return NoContent();
     }
+
     [HttpPost("{id:int}/members")]
     public async Task<IActionResult> AddMember(int id, AddTeamMemberRequest request)
     {
-        try
-        {
-            var member = await _teamService.AddMemberAsync(id, GetUserId(), GetUserRole(), request.UserId);
-            return StatusCode(201, member);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        var member = await _teamService.AddMemberAsync(id, GetUserId(), GetUserRole(), request.UserId);
+        return StatusCode(201, member);
     }
 
     [HttpDelete("{id:int}/members/{userId:int}")]
     public async Task<IActionResult> RemoveMember(int id, int userId)
     {
-        try
-        {
-            await _teamService.RemoveMemberAsync(id, GetUserId(), GetUserRole(), userId);
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        await _teamService.RemoveMemberAsync(id, GetUserId(), GetUserRole(), userId);
+        return NoContent();
     }
 
     [HttpGet("{id:int}/members")]
     public async Task<IActionResult> GetMembers(int id)
     {
-        try
-        {
-            var members = await _teamService.GetMembersAsync(id, GetUserId(), GetUserRole());
-            return Ok(members);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
+        var members = await _teamService.GetMembersAsync(id, GetUserId(), GetUserRole());
+        return Ok(members);
     }
+
+    private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private UserRole GetUserRole() => Enum.Parse<UserRole>(User.FindFirstValue(ClaimTypes.Role)!);
 }

@@ -1,8 +1,8 @@
 ﻿using System.Security.Claims;
+using DevTrack.Application.DTOs.Users;
 using DevTrack.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using DevTrack.Application.DTOs.Users;
 
 namespace DevTrack.API.Controllers;
 
@@ -22,10 +22,8 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetMe()
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
         var user = await _userService.GetByIdAsync(userId);
-        if (user is null) return NotFound();
-
+        if (user is null) throw new KeyNotFoundException("User not found.");
         return Ok(user);
     }
 
@@ -33,32 +31,16 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> UpdateMe(UpdateProfileRequest request)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        try
-        {
-            var updated = await _userService.UpdateProfileAsync(userId, request);
-            return Ok(updated);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var updated = await _userService.UpdateProfileAsync(userId, request);
+        return Ok(updated);
     }
 
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        try
-        {
-            await _userService.ChangePasswordAsync(userId, request);
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        await _userService.ChangePasswordAsync(userId, request);
+        return NoContent();
     }
 
     [Authorize(Roles = "Admin")]
@@ -74,7 +56,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var user = await _userService.GetByIdAsync(id);
-        if (user is null) return NotFound();
+        if (user is null) throw new KeyNotFoundException("User not found.");
         return Ok(user);
     }
 
@@ -82,29 +64,15 @@ public class UsersController : ControllerBase
     [HttpPatch("{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, UpdateUserStatusRequest request)
     {
-        try
-        {
-            var updated = await _userService.UpdateStatusAsync(id, request.IsActive);
-            return Ok(updated);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var updated = await _userService.UpdateStatusAsync(id, request.IsActive);
+        return Ok(updated);
     }
 
     [Authorize(Roles = "Admin")]
     [HttpPatch("{id:int}/role")]
     public async Task<IActionResult> UpdateRole(int id, UpdateUserRoleRequest request)
     {
-        try
-        {
-            var updated = await _userService.UpdateRoleAsync(id, request.Role);
-            return Ok(updated);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var updated = await _userService.UpdateRoleAsync(id, request.Role);
+        return Ok(updated);
     }
 }

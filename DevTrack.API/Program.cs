@@ -6,13 +6,28 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using DevTrack.API.Middleware;
 using Microsoft.Extensions.DependencyInjection;
-
+using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(e => e.Value?.Errors.Count > 0)
+            .ToDictionary(
+                kvp => char.ToLowerInvariant(kvp.Key[0]) + kvp.Key[1..],
+                kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+            );
 
+        var response = new { status = 400, message = "Validation failed", errors };
+        return new BadRequestObjectResult(response);
+    };
+});
 // App configuration
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
@@ -62,7 +77,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseHttpsRedirection();
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

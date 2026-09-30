@@ -4,7 +4,7 @@ using DevTrack.Domain.Entities;
 using DevTrack.Domain.Enums;
 using DevTrack.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-
+using DevTrack.Application.Common.Exceptions;
 namespace DevTrack.Infrastructure.Services;
 
 public class AuthService : IAuthService
@@ -27,7 +27,7 @@ public class AuthService : IAuthService
 
         var emailExists = await _db.Users.AnyAsync(u => u.Email == request.Email);
         if (emailExists)
-            throw new InvalidOperationException("A user with this email already exists.");
+            throw new ConflictException("A user with this email already exists.");
 
         var user = new User
         {
@@ -56,10 +56,10 @@ public class AuthService : IAuthService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (user is null || !_passwordHasher.Verify(user.PasswordHash, request.Password))
-            throw new InvalidOperationException("Invalid email or password.");
+            throw new InvalidCredentialsException("Invalid email or password.");
 
         if (!user.IsActive)
-            throw new InvalidOperationException("This account has been deactivated.");
+            throw new InvalidCredentialsException("This account has been deactivated.");
 
         var token = _tokenService.GenerateAccessToken(user);
 

@@ -22,128 +22,60 @@ public class TasksController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(CreateTaskRequest request)
     {
-        try
-        {
-            var task = await _taskService.CreateAsync(GetUserId(), GetUserRole(), request);
-            return StatusCode(201, task);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var task = await _taskService.CreateAsync(GetUserId(), GetUserRole(), request);
+        return StatusCode(201, task);
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] TaskQueryParameters parameters)
     {
-        var tasks = await _taskService.GetAllForUserAsync(GetUserId(), GetUserRole());
-        return Ok(tasks);
+        var result = await _taskService.GetAllForUserAsync(GetUserId(), GetUserRole(), parameters);
+        return Ok(result);
     }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
-        try
-        {
-            var task = await _taskService.GetByIdAsync(id, GetUserId(), GetUserRole());
-            if (task is null) return NotFound();
-            return Ok(task);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
+        var task = await _taskService.GetByIdAsync(id, GetUserId(), GetUserRole());
+        if (task is null) throw new KeyNotFoundException("Task not found.");
+        return Ok(task);
     }
+
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateTaskRequest request)
     {
-        try
-        {
-            var task = await _taskService.UpdateAsync(id, GetUserId(), GetUserRole(), request);
-            return Ok(task);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var task = await _taskService.UpdateAsync(id, GetUserId(), GetUserRole(), request);
+        return Ok(task);
     }
-
 
     [HttpPatch("{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, UpdateTaskStatusRequest request)
     {
-        try
-        {
-            var task = await _taskService.UpdateStatusAsync(id, GetUserId(), GetUserRole(), request.Status);
-            return Ok(task);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var task = await _taskService.UpdateStatusAsync(id, GetUserId(), GetUserRole(), request.Status);
+        return Ok(task);
     }
 
     [HttpPatch("{id:int}/assignee")]
     public async Task<IActionResult> UpdateAssignee(int id, UpdateTaskAssigneeRequest request)
     {
-        try
-        {
-            var task = await _taskService.UpdateAssigneeAsync(id, GetUserId(), GetUserRole(), request.AssigneeId);
-            return Ok(task);
-        }
-        catch (KeyNotFoundException) { return NotFound(); }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        var task = await _taskService.UpdateAssigneeAsync(id, GetUserId(), GetUserRole(), request.AssigneeId);
+        return Ok(task);
     }
 
     [HttpPatch("{id:int}/priority")]
     public async Task<IActionResult> UpdatePriority(int id, UpdateTaskPriorityRequest request)
     {
-        try
-        {
-            var task = await _taskService.UpdatePriorityAsync(id, GetUserId(), GetUserRole(), request.Priority);
-            return Ok(task);
-        }
-        catch (KeyNotFoundException) { return NotFound(); }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        var task = await _taskService.UpdatePriorityAsync(id, GetUserId(), GetUserRole(), request.Priority);
+        return Ok(task);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        try
-        {
-            await _taskService.DeleteAsync(id, GetUserId(), GetUserRole());
-            return NoContent();
-        }
-        catch (KeyNotFoundException) { return NotFound(); }
-        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        await _taskService.DeleteAsync(id, GetUserId(), GetUserRole());
+        return NoContent();
     }
+
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private UserRole GetUserRole() => Enum.Parse<UserRole>(User.FindFirstValue(ClaimTypes.Role)!);
 }
