@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using DevTrack.Application.Common.Exceptions;
-
+using System.Security.Claims;
 namespace DevTrack.API.Middleware;
 
 public class ExceptionHandlingMiddleware
@@ -26,9 +26,15 @@ public class ExceptionHandlingMiddleware
             var (statusCode, message) = MapException(ex);
 
             if (statusCode == HttpStatusCode.InternalServerError)
+            {
                 _logger.LogError(ex, "Unhandled exception on {Method} {Path}", context.Request.Method, context.Request.Path);
+            }
             else
-                _logger.LogWarning("{ExceptionType} on {Method} {Path}: {Message}", ex.GetType().Name, context.Request.Method, context.Request.Path, ex.Message);
+            {
+                var userId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+                _logger.LogWarning("{ExceptionType} on {Method} {Path} by user {UserId}: {Message}",
+                    ex.GetType().Name, context.Request.Method, context.Request.Path, userId, ex.Message);
+            }
 
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)statusCode;

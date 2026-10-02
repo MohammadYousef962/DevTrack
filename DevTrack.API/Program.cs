@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using DevTrack.API.Middleware;
+using DevTrack.API.OpenApi;
+using Scalar.AspNetCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
@@ -64,8 +66,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new()
+        {
+            Title = "DevTrack API",
+            Version = "v1",
+            Description = "A role-based project management platform with JWT authentication, resource-level authorization, task workflows, team/project management, audit logging, filtering, pagination, validation, and automated testing."
+        };
+        return Task.CompletedTask;
+    });
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
 // Add Entity Framework services
 builder.Services.AddDbContext<DevTrackDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -76,6 +90,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
