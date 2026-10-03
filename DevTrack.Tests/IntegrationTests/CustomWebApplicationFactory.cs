@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
+using DevTrack.Application.Interfaces;
 namespace DevTrack.Tests.IntegrationTests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
@@ -29,7 +29,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DevTrackDbContext>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
+        await DbSeeder.SeedAsync(db, passwordHasher);
     }
 }
