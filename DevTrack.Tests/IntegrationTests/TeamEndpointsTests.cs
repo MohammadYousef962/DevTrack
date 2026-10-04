@@ -34,8 +34,11 @@ public class TeamEndpointsTests : IClassFixture<CustomWebApplicationFactory>, IA
         if (!promoteResponse.IsSuccessStatusCode)
             throw new InvalidOperationException($"Failed to promote test user to ProjectManager: {promoteResponse.StatusCode}");
 
-        AuthHelper.AuthorizeAs(_client, token);
-        return (token, me.Id);
+        var freshLogin = await _client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
+        var freshAuth = await freshLogin.Content.ReadFromJsonAsync<DevTrack.Application.DTOs.Auth.AuthResponse>();
+
+        AuthHelper.AuthorizeAs(_client, freshAuth!.Token);
+        return (freshAuth.Token, me.Id);
     }
 
     [Fact]
@@ -67,7 +70,8 @@ public class TeamEndpointsTests : IClassFixture<CustomWebApplicationFactory>, IA
     {
         var (ownerToken, _) = await CreateProjectManagerAsync("owner@example.com");
         AuthHelper.AuthorizeAs(_client, ownerToken);
-        await _client.PostAsJsonAsync("/api/teams", new CreateTeamRequest { Name = "Private Team" });
+        var createResponse = await _client.PostAsJsonAsync("/api/teams", new CreateTeamRequest { Name = "Private Team" });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         var outsiderToken = await AuthHelper.RegisterAndLoginAsync(_client, "outsider@example.com");
         AuthHelper.AuthorizeAs(_client, outsiderToken);
