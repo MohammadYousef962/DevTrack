@@ -1,15 +1,22 @@
-import { Layers } from 'lucide-react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { LoginPage } from './pages/LoginPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 function App() {
     return (
-        <div className="h-screen w-full flex items-center justify-center bg-app-base">
-            <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-md bg-app-accent flex items-center justify-center text-white shadow-glow">
-                    <Layers className="w-5 h-5" />
-                </div>
-                <span className="text-2xl font-bold tracking-tight text-app-text">DevTrack</span>
-            </div>
-        </div>
+        <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+                path="/dashboard"
+                element={
+                    <ProtectedRoute>
+                        <DashboardPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
     )
 }
 
