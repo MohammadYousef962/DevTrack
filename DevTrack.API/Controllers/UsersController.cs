@@ -75,4 +75,12 @@ public class UsersController : ControllerBase
         var updated = await _userService.UpdateRoleAsync(id, request.Role);
         return Ok(updated);
     }
+
+    [Authorize(Roles = "Admin,ProjectManager")]
+    [HttpGet("lookup")]
+    public async Task<IActionResult> Lookup([FromQuery] string email = "")
+    {
+        var result = await _userService.LookupByEmailAsync(email);
+        return Ok(result);
+    }
 }

@@ -146,4 +146,16 @@ public class TaskServiceTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
             () => _sut.UpdatePriorityAsync(task.Id, assignee.Id, UserRole.Developer, "Critical"));
     }
+
+    [Fact]
+    public async Task DeleteAsync_OnArchivedProject_ThrowsInvalidOperationException()
+    {
+        var (owner, project) = await SeedProjectAsync(archived: true);
+        var task = new TaskItem { Title = "Frozen", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.DeleteAsync(task.Id, owner.Id, UserRole.ProjectManager));
+    }
 }

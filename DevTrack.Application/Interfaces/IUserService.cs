@@ -10,4 +10,5 @@ public interface IUserService
     Task<UserResponse> UpdateStatusAsync(int userId, bool isActive);
     Task<UserResponse> UpdateRoleAsync(int userId, string newRole);
     Task<IEnumerable<UserResponse>> GetAllAsync();
+    Task<UserLookupResponse> LookupByEmailAsync(string email);
 }

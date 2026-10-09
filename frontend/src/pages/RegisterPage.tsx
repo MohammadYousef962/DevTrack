@@ -4,11 +4,13 @@ import { Layers } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getErrorMessage } from '../api/errors'
 
-export function LoginPage() {
-    const { login } = useAuth()
+export function RegisterPage() {
+    const { register } = useAuth()
     const navigate = useNavigate()
+    const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
     const [error, setError] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -17,7 +19,7 @@ export function LoginPage() {
         setError('')
         setIsSubmitting(true)
         try {
-            await login({ email, password })
+            await register({ fullName, email, password, confirmPassword })
             navigate('/dashboard')
         } catch (err) {
             setError(getErrorMessage(err))
@@ -39,10 +41,21 @@ export function LoginPage() {
                 </div>
 
                 <div className="bg-app-surface border border-app-border rounded-xl p-8 shadow-2xl">
-                    <h1 className="text-lg font-medium text-app-text mb-1">Sign in to your workspace</h1>
-                    <p className="text-sm text-app-muted mb-6">Enter your details to proceed.</p>
+                    <h1 className="text-lg font-medium text-app-text mb-1">Create your account</h1>
+                    <p className="text-sm text-app-muted mb-6">New accounts start as Developers.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-medium text-app-muted mb-1.5">Full name</label>
+                            <input
+                                type="text"
+                                required
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                className="w-full bg-app-base border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-muted focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent transition-colors"
+                                placeholder="Jane Doe"
+                            />
+                        </div>
                         <div>
                             <label className="block text-xs font-medium text-app-muted mb-1.5">Email</label>
                             <input
@@ -62,6 +75,17 @@ export function LoginPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full bg-app-base border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-muted focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent transition-colors"
+                                placeholder="At least 8 characters"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-app-muted mb-1.5">Confirm password</label>
+                            <input
+                                type="password"
+                                required
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full bg-app-base border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-muted focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent transition-colors"
                                 placeholder="••••••••"
                             />
                         </div>
@@ -73,15 +97,15 @@ export function LoginPage() {
                             disabled={isSubmitting}
                             className="w-full bg-app-text text-app-base font-medium text-sm py-2.5 rounded-lg hover:bg-gray-200 transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isSubmitting ? 'Signing in...' : 'Sign In'}
+                            {isSubmitting ? 'Creating account...' : 'Create account'}
                         </button>
                     </form>
                 </div>
 
                 <p className="text-center text-xs text-app-muted mt-6">
-                    Don't have an account?{' '}
-                    <Link to="/register" className="text-app-text hover:underline">
-                        Sign up
+                    Already have an account?{' '}
+                    <Link to="/login" className="text-app-text hover:underline">
+                        Sign in
                     </Link>
                 </p>
             </div>

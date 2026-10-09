@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { AuthResponse, LoginRequest } from '../types/auth'
-import { login as loginApi } from '../api/auth'
+import type { AuthResponse, LoginRequest, RegisterRequest } from '../types/auth'
+import { login as loginApi, register as registerApi } from '../api/auth'
 import { SESSION_KEY } from '../api/client'
 
 interface AuthContextType {
     user: AuthResponse | null
     isLoading: boolean
     login: (request: LoginRequest) => Promise<void>
+    register: (request: RegisterRequest) => Promise<void>
     logout: () => void
 }
 
@@ -30,13 +31,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(result)
     }
 
+    async function register(request: RegisterRequest) {
+        const result = await registerApi(request)
+        localStorage.setItem(SESSION_KEY, JSON.stringify(result))
+        setUser(result)
+    }
+
     function logout() {
         localStorage.removeItem(SESSION_KEY)
         setUser(null)
     }
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
             {children}
         </AuthContext.Provider>
     )

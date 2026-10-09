@@ -38,7 +38,7 @@ public class TeamsController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var team = await _teamService.GetByIdAsync(id, GetUserId(), GetUserRole());
-        if (team is null) return NotFound();
+        if (team is null) throw new KeyNotFoundException("Team not found.");
         return Ok(team);
     }
 

@@ -102,4 +102,43 @@ public class TeamEndpointsTests : IClassFixture<CustomWebApplicationFactory>, IA
 
         Assert.Equal(HttpStatusCode.Conflict, secondAttempt.StatusCode);
     }
+    [Fact]
+    public async Task LookupUser_AsDeveloper_Returns403()
+    {
+        var token = await AuthHelper.RegisterAndLoginAsync(_client, "plain-dev@example.com");
+        AuthHelper.AuthorizeAs(_client, token);
+
+        var response = await _client.GetAsync("/api/users/lookup?email=admin@devtrack.local");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LookupUser_AsProjectManager_ReturnsBasicInfo()
+    {
+        var (token, _) = await CreateProjectManagerAsync("lookup-pm@example.com");
+        AuthHelper.AuthorizeAs(_client, token);
+
+        var response = await _client.GetAsync("/api/users/lookup?email=admin@devtrack.local");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lookup = await response.Content.ReadFromJsonAsync<UserLookupResponse>();
+        Assert.Equal("System Admin", lookup!.FullName);
+        Assert.Equal("admin@devtrack.local", lookup.Email);
+    }
+
+    [Fact]
+    public async Task GetById_UnknownTeam_Returns404WithMessage()
+    {
+        var login = await _client.PostAsJsonAsync("/api/auth/login",
+            new { email = "admin@devtrack.local", password = "Admin123!" });
+        var auth = await login.Content.ReadFromJsonAsync<DevTrack.Application.DTOs.Auth.AuthResponse>();
+        AuthHelper.AuthorizeAs(_client, auth!.Token);
+
+        var response = await _client.GetAsync("/api/teams/9999");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Team not found", body);
+    }
 }

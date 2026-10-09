@@ -333,15 +333,21 @@ public class TaskService : ITaskService
 
     public async Task DeleteAsync(int taskId, int userId, UserRole userRole)
     {
-        var task = await _db.TaskItems.Include(t => t.Project).ThenInclude(p => p.Team)
+        var task = await _db.TaskItems
+            .Include(t => t.Project).ThenInclude(p => p.Team)
+            .Include(t => t.Comments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task is null)
             throw new KeyNotFoundException("Task not found.");
 
+        if (task.Project.Status == ProjectStatus.Archived)
+            throw new InvalidOperationException("Cannot modify tasks in an archived project.");
+
         if (userRole != UserRole.Admin && task.Project.Team.OwnerId != userId)
             throw new UnauthorizedAccessException("Only the team owner or an admin can delete this task.");
 
+        _db.Comments.RemoveRange(task.Comments);
         _db.TaskItems.Remove(task);
         await _db.SaveChangesAsync();
     }

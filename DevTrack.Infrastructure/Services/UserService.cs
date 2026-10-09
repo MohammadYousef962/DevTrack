@@ -98,4 +98,25 @@ public class UserService : IUserService
         await _db.SaveChangesAsync();
         return UserResponse.FromEntity(user);
     }
+    public async Task<UserLookupResponse> LookupByEmailAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            throw new InvalidOperationException("Email is required.");
+
+        var normalized = email.Trim();
+
+        var user = await _db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email == normalized && u.IsActive);
+
+        if (user is null)
+            throw new KeyNotFoundException("No active user found with that email.");
+
+        return new UserLookupResponse
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email
+        };
+    }
 }
