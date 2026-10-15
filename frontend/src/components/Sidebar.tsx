@@ -9,14 +9,12 @@ const navItems = [
     { label: 'Projects', icon: FolderKanban, to: '/projects', adminOnly: false },
     { label: 'My Tasks', icon: CheckSquare, to: '/my-tasks', adminOnly: false },
     { label: 'Teams', icon: Users, to: '/teams', adminOnly: false },
+    { label: 'Activity', icon: Activity, to: '/activity', adminOnly: false },
     { label: 'Admin', icon: Shield, to: '/admin', adminOnly: true },
 ]
 
-const comingSoonItems = [
-    { label: 'Activity', icon: Activity },
-]
-
-
+// The navigation itself, shared by the desktop sidebar and the mobile drawer.
+// onNavigate lets the drawer close itself when a link is tapped.
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     const location = useLocation()
     const { user, logout } = useAuth()
@@ -51,17 +49,6 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                             </Link>
                         )
                     })}
-
-                    {comingSoonItems.map((item) => (
-                        <div
-                            key={item.label}
-                            className="flex items-center gap-2.5 px-3 py-1.5 text-sm font-medium rounded-md text-app-muted/50 cursor-not-allowed"
-                            title="Coming soon"
-                        >
-                            <item.icon className="w-4 h-4" />
-                            {item.label}
-                        </div>
-                    ))}
                 </nav>
             </div>
 

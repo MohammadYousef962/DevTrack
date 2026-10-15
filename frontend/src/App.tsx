@@ -7,6 +7,7 @@ import { ProjectBoardPage } from './pages/ProjectBoardPage'
 import { ProjectActivityPage } from './pages/ProjectActivityPage'
 import { ProjectSettingsPage } from './pages/ProjectSettingsPage'
 import { MyTasksPage } from './pages/MyTasksPage'
+import { ActivityPage } from './pages/ActivityPage'
 import { TeamsPage } from './pages/TeamsPage'
 import { TeamDetailPage } from './pages/TeamDetailPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -33,6 +34,7 @@ function App() {
                 <Route path="/projects/:projectId/activity" element={<ProjectActivityPage />} />
                 <Route path="/projects/:projectId/settings" element={<ProjectSettingsPage />} />
                 <Route path="/my-tasks" element={<MyTasksPage />} />
+                <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/teams" element={<TeamsPage />} />
                 <Route path="/teams/:teamId" element={<TeamDetailPage />} />
                 <Route path="/profile" element={<ProfilePage />} />

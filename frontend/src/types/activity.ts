@@ -9,3 +9,8 @@ export interface ActivityLogResponse {
     details: string | null
     timestamp: string
 }
+
+// An entry in the cross-project feed. It also says which project it belongs to.
+export interface RecentActivityResponse extends ActivityLogResponse {
+    projectName: string | null
+}

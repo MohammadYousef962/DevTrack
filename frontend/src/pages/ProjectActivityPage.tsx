@@ -1,81 +1,22 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { getProject } from '../api/projects'
 import { getProjectActivity } from '../api/activity'
 import { getErrorMessage } from '../api/errors'
-import { useAuth } from '../context/AuthContext'
-import { formatRelativeTime, parseApiDate } from '../lib/dates'
-import { projectStatusStyles, taskStatusLabels } from '../lib/styles'
+import { projectStatusStyles } from '../lib/styles'
 import { ProjectTabs } from '../components/ProjectTabs'
+import { ActivityFeedItem } from '../components/ActivityFeedItem'
 import type { ActivityLogResponse } from '../types/activity'
 import type { PagedResult } from '../types/common'
 import type { ProjectResponse } from '../types/project'
-import type { TaskStatus } from '../types/task'
 
 // Temporarily change this to 2 to try the paging controls without needing 21 events.
 const PAGE_SIZE = 20
 
-function Emphasis({ children }: { children: ReactNode }) {
-    return <span className="font-medium text-app-text">{children}</span>
-}
-
-function statusLabel(value: string): string {
-    return taskStatusLabels[value as TaskStatus] ?? value
-}
-
-// Turns a raw log entry into a sentence fragment like: created task #12 "Fix login"
-function describeActivity(entry: ActivityLogResponse): ReactNode {
-    const task = <Emphasis>task #{entry.entityId}</Emphasis>
-    const details = entry.details
-
-    switch (entry.action) {
-        case 'Created project':
-            return (
-                <>
-                    created project <Emphasis>{details ?? `#${entry.entityId}`}</Emphasis>
-                </>
-            )
-        case 'Created task':
-            return (
-                <>
-                    created {task}
-                    {details && <> &ldquo;{details}&rdquo;</>}
-                </>
-            )
-        case 'Changed task status': {
-            const [from, to] = (details ?? '').split(' \u2192 ')
-            if (from && to) {
-                return (
-                    <>
-                        changed {task} from <Emphasis>{statusLabel(from)}</Emphasis> to <Emphasis>{statusLabel(to)}</Emphasis>
-                    </>
-                )
-            }
-            return <>changed the status of {task}</>
-        }
-        case 'Assigned task':
-            return details && details !== 'Unassigned' ? (
-                <>
-                    assigned {task} to <Emphasis>{details}</Emphasis>
-                </>
-            ) : (
-                <>unassigned {task}</>
-            )
-        default:
-            return (
-                <>
-                    {entry.action.toLowerCase()} {entry.entityType.toLowerCase()} #{entry.entityId}
-                    {details ? `: ${details}` : ''}
-                </>
-            )
-    }
-}
-
 export function ProjectActivityPage() {
     const { projectId } = useParams()
     const id = Number(projectId)
-    const { user } = useAuth()
 
     const [project, setProject] = useState<ProjectResponse | null>(null)
     const [projectError, setProjectError] = useState('')
@@ -228,25 +169,9 @@ export function ProjectActivityPage() {
                             className={`bg-app-surface border border-app-border rounded-xl divide-y divide-app-border overflow-hidden transition-opacity ${isActivityLoading ? 'opacity-50' : ''
                                 }`}
                         >
-                            {result.items.map((entry) => {
-                                const actor = entry.userId === user?.userId ? 'You' : entry.userName
-                                const when = parseApiDate(entry.timestamp)
-                                return (
-                                    <div key={entry.id} className="p-4 flex gap-3">
-                                        <div className="w-7 h-7 rounded-full bg-app-accent flex items-center justify-center text-white text-xs font-semibold shrink-0">
-                                            {entry.userName.charAt(0)}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm text-app-muted break-words">
-                                                <Emphasis>{actor}</Emphasis> {describeActivity(entry)}
-                                            </p>
-                                            <p className="text-xs text-app-muted mt-0.5" title={when.toLocaleString()}>
-                                                {formatRelativeTime(when)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )
-                            })}
+                            {result.items.map((entry) => (
+                                <ActivityFeedItem key={entry.id} entry={entry} />
+                            ))}
                         </div>
 
                         <div className="flex items-center justify-between text-sm">
