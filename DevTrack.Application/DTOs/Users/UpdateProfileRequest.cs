@@ -9,5 +9,6 @@ public class UpdateProfileRequest
     public string FullName { get; set; } = string.Empty;
 
     [Url(ErrorMessage = "Profile image must be a valid URL.")]
+    [MaxLength(2048, ErrorMessage = "Profile image URL cannot exceed 2048 characters.")]
     public string? ProfileImageUrl { get; set; }
 }

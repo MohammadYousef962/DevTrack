@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Plus, Calendar, Loader2, Circle, CircleDot, Check, type LucideIcon } from 'lucide-react'
 import { getProject, getProjectMembers } from '../api/projects'
 import { getTasks, createTask } from '../api/tasks'
 import { getTeams } from '../api/teams'
 import { getErrorMessage } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
+import { todayLocal } from '../lib/dates'
 import { Modal } from '../components/Modal'
 import { TaskDetailPanel } from '../components/TaskDetailPanel'
+import { ProjectTabs } from '../components/ProjectTabs'
 import { projectStatusStyles, taskPriorityStyles, taskPriorityOrder, taskStatusLabels } from '../lib/styles'
 import type { ProjectMemberResponse, ProjectResponse } from '../types/project'
 import type { TaskResponse, TaskStatus, TaskPriority } from '../types/task'
@@ -25,40 +27,62 @@ export function ProjectBoardPage() {
     const { projectId } = useParams()
     const id = Number(projectId)
     const { user } = useAuth()
+    const [searchParams, setSearchParams] = useSearchParams()
     const [project, setProject] = useState<ProjectResponse | null>(null)
     const [tasks, setTasks] = useState<TaskResponse[]>([])
+    const [totalTaskCount, setTotalTaskCount] = useState(0)
     const [members, setMembers] = useState<ProjectMemberResponse[]>([])
     const [teams, setTeams] = useState<TeamResponse[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [loadError, setLoadError] = useState('')
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
+    const [attempt, setAttempt] = useState(0)
 
-    const loadBoard = useCallback(async () => {
-        setLoadError('')
-        try {
-            const [projectData, tasksData, membersData, teamsData] = await Promise.all([
-                getProject(id),
-                getTasks({ projectId: id, pageSize: 200 }),
-                // If members or teams can't be loaded, the board should still work; only the
-                // assignee dropdown / the owner-only controls are affected.
-                getProjectMembers(id).catch((): ProjectMemberResponse[] => []),
-                getTeams().catch((): TeamResponse[] => []),
-            ])
-            setProject(projectData)
-            setTasks(tasksData.items)
-            setMembers(membersData)
-            setTeams(teamsData)
-        } catch (err) {
-            setLoadError(getErrorMessage(err))
-        } finally {
-            setIsLoading(false)
-        }
-    }, [id])
+    // The open task lives in the URL (?task=12), so a task can be linked to and survives a refresh.
+    const taskParam = Number(searchParams.get('task'))
+    const selectedTaskId = Number.isInteger(taskParam) && taskParam > 0 ? taskParam : null
 
     useEffect(() => {
-        loadBoard()
-    }, [loadBoard])
+        let cancelled = false
+        Promise.all([
+            getProject(id),
+            getTasks({ projectId: id, pageSize: 200 }),
+            // If members or teams can't be loaded, the board should still work; only the
+            // assignee dropdown / the owner-only controls are affected.
+            getProjectMembers(id).catch((): ProjectMemberResponse[] => []),
+            getTeams().catch((): TeamResponse[] => []),
+        ])
+            .then(([projectData, tasksData, membersData, teamsData]) => {
+                if (cancelled) return
+                setProject(projectData)
+                setTasks(tasksData.items)
+                setTotalTaskCount(tasksData.totalCount)
+                setMembers(membersData)
+                setTeams(teamsData)
+                setLoadError('')
+            })
+            .catch((err) => {
+                if (!cancelled) setLoadError(getErrorMessage(err))
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [id, attempt])
+
+    function openTask(taskId: number) {
+        const next = new URLSearchParams(searchParams)
+        next.set('task', String(taskId))
+        setSearchParams(next, { replace: true })
+    }
+
+    function closeTask() {
+        const next = new URLSearchParams(searchParams)
+        next.delete('task')
+        setSearchParams(next, { replace: true })
+    }
 
     if (isLoading) {
         return (
@@ -76,7 +100,7 @@ export function ProjectBoardPage() {
                     <button
                         onClick={() => {
                             setIsLoading(true)
-                            loadBoard()
+                            setAttempt((n) => n + 1)
                         }}
                         className="text-app-accent hover:underline"
                     >
@@ -101,7 +125,8 @@ export function ProjectBoardPage() {
 
     function handleTaskDeleted(taskId: number) {
         setTasks((prev) => prev.filter((t) => t.id !== taskId))
-        setSelectedTaskId(null)
+        setTotalTaskCount((n) => Math.max(0, n - 1))
+        closeTask()
     }
 
     return (
@@ -133,6 +158,23 @@ export function ProjectBoardPage() {
                 </div>
             </div>
 
+            <ProjectTabs projectId={project.id} active="board" />
+
+            {selectedTaskId !== null && !selectedTask && (
+                <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-app-progress/30 bg-app-progress/10 px-3 py-2 text-sm text-app-progress">
+                    <span>Task #{selectedTaskId} wasn't found on this board.</span>
+                    <button onClick={closeTask} className="shrink-0 text-xs underline hover:no-underline">
+                        Dismiss
+                    </button>
+                </div>
+            )}
+
+            {totalTaskCount > tasks.length && (
+                <div className="mx-6 mt-4 rounded-lg border border-app-border bg-app-surface px-3 py-2 text-sm text-app-muted">
+                    Showing the newest {tasks.length} of {totalTaskCount} tasks. Older tasks aren't shown on this board yet.
+                </div>
+            )}
+
             <div className="flex-1 overflow-x-auto p-6">
                 <div className="flex gap-4 min-w-max items-start">
                     {columns.map((column) => {
@@ -151,7 +193,7 @@ export function ProjectBoardPage() {
                                         </div>
                                     )}
                                     {columnTasks.map((task) => (
-                                        <TaskCard key={task.id} task={task} onOpen={() => setSelectedTaskId(task.id)} />
+                                        <TaskCard key={task.id} task={task} onOpen={() => openTask(task.id)} />
                                     ))}
                                 </div>
                             </div>
@@ -165,7 +207,7 @@ export function ProjectBoardPage() {
                     projectId={project.id}
                     onCreated={() => {
                         setIsModalOpen(false)
-                        loadBoard()
+                        setAttempt((n) => n + 1)
                     }}
                 />
             </Modal>
@@ -177,7 +219,7 @@ export function ProjectBoardPage() {
                     members={members}
                     isArchived={isArchived}
                     canManage={canManage}
-                    onClose={() => setSelectedTaskId(null)}
+                    onClose={closeTask}
                     onTaskUpdated={handleTaskUpdated}
                     onTaskDeleted={handleTaskDeleted}
                 />
@@ -187,7 +229,7 @@ export function ProjectBoardPage() {
 }
 
 function TaskCard({ task, onOpen }: { task: TaskResponse; onOpen: () => void }) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayLocal()
     const isDone = task.status === 'Done'
     const isOverdue = !!task.dueDate && !isDone && task.dueDate.slice(0, 10) < today
 

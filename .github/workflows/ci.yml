@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      Logging__LogLevel__Default: Warning
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Start SQL Server and generate throwaway secrets
+        run: |
+          set -euo pipefail
+
+          SA_PASSWORD="Aa1-$(openssl rand -hex 16)"
+          JWT_KEY="$(openssl rand -base64 64 | tr -d '\n')"
+          echo "::add-mask::${SA_PASSWORD}"
+          echo "::add-mask::${JWT_KEY}"
+
+          echo "DEVTRACK_TEST_CONNECTION=Server=localhost,1433;Database=DevTrackTestDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true" >> "$GITHUB_ENV"
+          echo "Jwt__SigningKey=${JWT_KEY}" >> "$GITHUB_ENV"
+
+          docker run -d --name sqlserver \
+            -e ACCEPT_EULA=Y \
+            -e "MSSQL_SA_PASSWORD=${SA_PASSWORD}" \
+            -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+
+          for attempt in $(seq 1 40); do
+            if docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -C -Q "SELECT 1" > /dev/null 2>&1; then
+              echo "SQL Server is ready."
+              exit 0
+            fi
+            echo "Waiting for SQL Server (attempt ${attempt}/40)..."
+            sleep 3
+          done
+
+          echo "SQL Server did not become ready in time."
+          docker logs sqlserver
+          exit 1
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release
+
+  frontend:
+    name: Frontend (type-check + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint

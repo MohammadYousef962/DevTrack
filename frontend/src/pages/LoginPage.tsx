@@ -1,16 +1,20 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Layers } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getErrorMessage } from '../api/errors'
 
 export function LoginPage() {
-    const { login } = useAuth()
+    const { login, signedOutReason } = useAuth()
     const navigate = useNavigate()
+    const location = useLocation()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    const from = (location.state as { from?: string } | null)?.from
+    const destination = from && from.startsWith('/') && !from.startsWith('//') ? from : '/dashboard'
 
     async function handleSubmit(e: FormEvent) {
         e.preventDefault()
@@ -18,7 +22,7 @@ export function LoginPage() {
         setIsSubmitting(true)
         try {
             await login({ email, password })
-            navigate('/dashboard')
+            navigate(destination, { replace: true })
         } catch (err) {
             setError(getErrorMessage(err))
         } finally {
@@ -27,10 +31,10 @@ export function LoginPage() {
     }
 
     return (
-        <div className="fixed inset-0 bg-app-base flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 bg-app-base overflow-x-hidden overflow-y-auto flex flex-col p-4">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-app-accent/10 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="w-full max-w-sm relative z-10">
+            <div className="w-full max-w-sm relative z-10 m-auto">
                 <div className="flex items-center justify-center gap-2 mb-8">
                     <div className="w-8 h-8 rounded-md bg-app-accent flex items-center justify-center text-white shadow-glow">
                         <Layers className="w-5 h-5" />
@@ -41,6 +45,12 @@ export function LoginPage() {
                 <div className="bg-app-surface border border-app-border rounded-xl p-8 shadow-2xl">
                     <h1 className="text-lg font-medium text-app-text mb-1">Sign in to your workspace</h1>
                     <p className="text-sm text-app-muted mb-6">Enter your details to proceed.</p>
+
+                    {signedOutReason === 'expired' && (
+                        <div className="mb-4 rounded-lg border border-app-progress/30 bg-app-progress/10 px-3 py-2 text-sm text-app-progress">
+                            Your session expired. Please sign in again.
+                        </div>
+                    )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>

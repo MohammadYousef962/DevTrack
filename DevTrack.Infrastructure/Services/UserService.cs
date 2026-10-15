@@ -63,7 +63,8 @@ public class UserService : IUserService
         if (user is null)
             throw new InvalidOperationException("User not found.");
 
-        if (!isActive && user.Role == Domain.Enums.UserRole.Admin)
+        // Only an admin who is currently active counts toward "the last active admin".
+        if (!isActive && user.IsActive && user.Role == Domain.Enums.UserRole.Admin)
         {
             var activeAdminCount = await _db.Users
                 .CountAsync(u => u.Role == Domain.Enums.UserRole.Admin && u.IsActive);
@@ -76,16 +77,18 @@ public class UserService : IUserService
         await _db.SaveChangesAsync();
         return UserResponse.FromEntity(user);
     }
+
     public async Task<UserResponse> UpdateRoleAsync(int userId, string newRole)
     {
-        if (!Enum.TryParse<Domain.Enums.UserRole>(newRole, ignoreCase: true, out var parsedRole))
+        // Enum.TryParse also accepts numbers like "99", so check the value is a real member too.
+        if (!Enum.TryParse<Domain.Enums.UserRole>(newRole, ignoreCase: true, out var parsedRole) || !Enum.IsDefined(parsedRole))
             throw new InvalidOperationException($"'{newRole}' is not a valid role.");
 
         var user = await _db.Users.FindAsync(userId);
         if (user is null)
             throw new InvalidOperationException("User not found.");
 
-        if (user.Role == Domain.Enums.UserRole.Admin && parsedRole != Domain.Enums.UserRole.Admin)
+        if (user.IsActive && user.Role == Domain.Enums.UserRole.Admin && parsedRole != Domain.Enums.UserRole.Admin)
         {
             var activeAdminCount = await _db.Users
                 .CountAsync(u => u.Role == Domain.Enums.UserRole.Admin && u.IsActive);

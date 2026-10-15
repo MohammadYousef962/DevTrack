@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { AuthResponse } from '../types/auth'
 
 export const SESSION_KEY = 'devtrack_session'
+export const SESSION_EXPIRED_EVENT = 'devtrack:session-expired'
 
 const apiClient = axios.create({
     baseURL: 'http://localhost:5055/api',
@@ -15,5 +16,19 @@ apiClient.interceptors.request.use((config) => {
     }
     return config
 })
+
+apiClient.interceptors.response.use(
+    (response) => response,
+    (error: unknown) => {
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+            const isAuthRequest = (error.config?.url ?? '').startsWith('/auth/')
+            if (!isAuthRequest) {
+                localStorage.removeItem(SESSION_KEY)
+                window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+            }
+        }
+        return Promise.reject(error)
+    }
+)
 
 export default apiClient

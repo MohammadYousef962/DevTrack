@@ -34,7 +34,7 @@ public class TaskService : ITaskService
             throw new UnauthorizedAccessException("You do not have access to this project.");
 
         var priorityText = string.IsNullOrWhiteSpace(request.Priority) ? "Medium" : request.Priority;
-        if (!Enum.TryParse<TaskPriority>(priorityText, ignoreCase: true, out var parsedPriority))
+        if (!Enum.TryParse<TaskPriority>(priorityText, ignoreCase: true, out var parsedPriority) || !Enum.IsDefined(parsedPriority))
             throw new InvalidOperationException($"'{request.Priority}' is not a valid priority.");
 
         int? assigneeId = request.AssigneeId;
@@ -225,7 +225,7 @@ public class TaskService : ITaskService
 
     public async Task<TaskResponse> UpdateStatusAsync(int taskId, int userId, UserRole userRole, string newStatus)
     {
-        if (!Enum.TryParse<TaskItemStatus>(newStatus, ignoreCase: true, out var parsedStatus))
+        if (!Enum.TryParse<TaskItemStatus>(newStatus, ignoreCase: true, out var parsedStatus) || !Enum.IsDefined(parsedStatus))
             throw new InvalidOperationException($"'{newStatus}' is not a valid task status.");
 
         var task = await _db.TaskItems
@@ -303,7 +303,7 @@ public class TaskService : ITaskService
 
     public async Task<TaskResponse> UpdatePriorityAsync(int taskId, int userId, UserRole userRole, string newPriority)
     {
-        if (!Enum.TryParse<TaskPriority>(newPriority, ignoreCase: true, out var parsedPriority))
+        if (!Enum.TryParse<TaskPriority>(newPriority, ignoreCase: true, out var parsedPriority) || !Enum.IsDefined(parsedPriority))
             throw new InvalidOperationException($"'{newPriority}' is not a valid priority.");
 
         var task = await _db.TaskItems

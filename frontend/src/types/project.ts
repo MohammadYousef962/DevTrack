@@ -26,3 +26,9 @@ export interface ProjectMemberResponse {
     email: string
     joinedAt: string
 }
+export interface UpdateProjectRequest {
+    name: string
+    description: string | null
+    startDate: string
+    dueDate: string | null
+}

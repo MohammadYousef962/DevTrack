@@ -26,3 +26,11 @@ export const taskStatusLabels: Record<TaskStatus, string> = {
 export const taskStatusOrder: TaskStatus[] = ['Backlog', 'ToDo', 'InProgress', 'InReview', 'Done']
 
 export const taskPriorityOrder: TaskPriority[] = ['Low', 'Medium', 'High', 'Critical']
+
+export const taskStatusStyles: Record<TaskStatus, string> = {
+    Backlog: 'border-app-border text-app-muted bg-app-hover',
+    ToDo: 'border-app-todo/30 text-app-todo bg-app-todo/10',
+    InProgress: 'border-app-progress/30 text-app-progress bg-app-progress/10',
+    InReview: 'border-app-review/30 text-app-review bg-app-review/10',
+    Done: 'border-app-done/30 text-app-done bg-app-done/10',
+}

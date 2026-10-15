@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Users, Loader2 } from 'lucide-react'
 import { createTeam, getTeams } from '../api/teams'
@@ -15,23 +15,27 @@ export function TeamsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [loadError, setLoadError] = useState('')
     const [isModalOpen, setIsModalOpen] = useState(false)
-
+    const [attempt, setAttempt] = useState(0)
     const canCreate = user?.role === 'Admin' || user?.role === 'ProjectManager'
 
-    const loadTeams = useCallback(async () => {
-        setLoadError('')
-        try {
-            setTeams(await getTeams())
-        } catch (err) {
-            setLoadError(getErrorMessage(err))
-        } finally {
-            setIsLoading(false)
-        }
-    }, [])
-
     useEffect(() => {
-        loadTeams()
-    }, [loadTeams])
+        let cancelled = false
+        getTeams()
+            .then((data) => {
+                if (cancelled) return
+                setTeams(data)
+                setLoadError('')
+            })
+            .catch((err) => {
+                if (!cancelled) setLoadError(getErrorMessage(err))
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [attempt])
 
     return (
         <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
@@ -64,7 +68,7 @@ export function TeamsPage() {
                     <button
                         onClick={() => {
                             setIsLoading(true)
-                            loadTeams()
+                            setAttempt((n) => n + 1)
                         }}
                         className="text-sm text-app-accent hover:underline"
                     >

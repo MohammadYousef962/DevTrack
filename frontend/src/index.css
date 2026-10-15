@@ -86,3 +86,17 @@ body {
 .slide-in-right {
     animation: slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+@keyframes slide-in-left {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+.slide-in-left {
+    animation: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}

@@ -13,4 +13,5 @@ public interface IProjectService
     Task<ProjectMemberResponse> AddMemberAsync(int projectId, int requestingUserId, UserRole requestingUserRole, int newMemberUserId);
     Task RemoveMemberAsync(int projectId, int requestingUserId, UserRole requestingUserRole, int memberUserId);
     Task<IEnumerable<ProjectMemberResponse>> GetMembersAsync(int projectId, int requestingUserId, UserRole requestingUserRole);
+    Task DeleteAsync(int projectId, int userId, UserRole userRole);
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronRight, Loader2, Pencil, Trash2, UserPlus } from 'lucide-react'
 import {
@@ -30,6 +30,7 @@ export function TeamDetailPage() {
     const [members, setMembers] = useState<TeamMemberResponse[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [loadError, setLoadError] = useState('')
+    const [attempt, setAttempt] = useState(0)
 
     const [isEditOpen, setIsEditOpen] = useState(false)
 
@@ -41,22 +42,25 @@ export function TeamDetailPage() {
     const [deleteError, setDeleteError] = useState('')
     const [isDeleting, setIsDeleting] = useState(false)
 
-    const loadTeam = useCallback(async () => {
-        setLoadError('')
-        try {
-            const [teamData, membersData] = await Promise.all([getTeam(id), getTeamMembers(id)])
-            setTeam(teamData)
-            setMembers(membersData)
-        } catch (err) {
-            setLoadError(getErrorMessage(err))
-        } finally {
-            setIsLoading(false)
-        }
-    }, [id])
-
     useEffect(() => {
-        loadTeam()
-    }, [loadTeam])
+        let cancelled = false
+        Promise.all([getTeam(id), getTeamMembers(id)])
+            .then(([teamData, membersData]) => {
+                if (cancelled) return
+                setTeam(teamData)
+                setMembers(membersData)
+                setLoadError('')
+            })
+            .catch((err) => {
+                if (!cancelled) setLoadError(getErrorMessage(err))
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [id, attempt])
 
     async function handleAddMember(e: FormEvent) {
         e.preventDefault()
@@ -113,7 +117,7 @@ export function TeamDetailPage() {
                     <button
                         onClick={() => {
                             setIsLoading(true)
-                            loadTeam()
+                            setAttempt((n) => n + 1)
                         }}
                         className="text-app-accent hover:underline"
                     >

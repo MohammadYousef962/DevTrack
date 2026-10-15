@@ -158,4 +158,37 @@ public class TaskServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _sut.DeleteAsync(task.Id, owner.Id, UserRole.ProjectManager));
     }
+    [Fact]
+    public async Task CreateAsync_WithNumericPriority_ThrowsInvalidOperationException()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var request = new CreateTaskRequest { Title = "Task", ProjectId = project.Id, Priority = "99" };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.CreateAsync(owner.Id, UserRole.ProjectManager, request));
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_WithNumericStatus_ThrowsInvalidOperationException()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem { Title = "Task", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.UpdateStatusAsync(task.Id, owner.Id, UserRole.ProjectManager, "99"));
+    }
+
+    [Fact]
+    public async Task UpdatePriorityAsync_WithNumericPriority_ThrowsInvalidOperationException()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem { Title = "Task", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.UpdatePriorityAsync(task.Id, owner.Id, UserRole.ProjectManager, "99"));
+    }
 }

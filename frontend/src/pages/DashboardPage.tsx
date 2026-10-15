@@ -8,7 +8,7 @@ import { getErrorMessage } from '../api/errors'
 import type { ProjectResponse } from '../types/project'
 import type { TaskResponse } from '../types/task'
 import type { UserResponse } from '../types/user'
-
+import { addDaysLocal, todayLocal } from '../lib/dates'
 export function DashboardPage() {
   const { user } = useAuth()
   const [projects, setProjects] = useState<ProjectResponse[]>([])
@@ -27,13 +27,14 @@ export function DashboardPage() {
     setIsLoading(true)
     setLoadError('')
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        const today = todayLocal()
+        const yesterday = addDaysLocal(-1)
+        const weekFromNow = addDaysLocal(7)
 
       const [projectsData, totalResult, overdueResult, upcomingResult, usersData] = await Promise.all([
         getProjects(),
         getTasks({ pageSize: 1 }),
-        getTasks({ dueBefore: today, pageSize: 50 }),
+        getTasks({ dueBefore: yesterday, pageSize: 50 }),
         getTasks({ dueAfter: today, dueBefore: weekFromNow, pageSize: 50 }),
         user?.role === 'Admin' ? getUsers() : Promise.resolve(null),
       ])

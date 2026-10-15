@@ -85,6 +85,12 @@ public class ProjectsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        await _projectService.DeleteAsync(id, GetUserId(), GetUserRole());
+        return NoContent();
+    }
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private UserRole GetUserRole() => Enum.Parse<UserRole>(User.FindFirstValue(ClaimTypes.Role)!);
 }

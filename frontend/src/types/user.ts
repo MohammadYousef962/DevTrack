@@ -13,3 +13,14 @@ export interface UserLookupResponse {
     fullName: string
     email: string
 }
+
+export interface UpdateProfileRequest {
+    fullName: string
+    profileImageUrl: string | null
+}
+
+export interface ChangePasswordRequest {
+    currentPassword: string
+    newPassword: string
+    confirmNewPassword: string
+}

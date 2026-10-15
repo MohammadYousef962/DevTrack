@@ -130,7 +130,7 @@ public class ProjectService : IProjectService
 
     public async Task<ProjectResponse> UpdateStatusAsync(int projectId, int userId, UserRole userRole, string newStatus)
     {
-        if (!Enum.TryParse<ProjectStatus>(newStatus, ignoreCase: true, out var parsedStatus))
+        if (!Enum.TryParse<ProjectStatus>(newStatus, ignoreCase: true, out var parsedStatus) || !Enum.IsDefined(parsedStatus))
             throw new InvalidOperationException($"'{newStatus}' is not a valid project status.");
 
         var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
@@ -201,10 +201,44 @@ public class ProjectService : IProjectService
         if (membership is null)
             throw new KeyNotFoundException("This user is not a member of this project.");
 
+        var assignedTasks = await _db.TaskItems
+            .Where(t => t.ProjectId == projectId && t.AssigneeId == memberUserId)
+            .ToListAsync();
+        foreach (var task in assignedTasks)
+            task.AssigneeId = null;
+
         _db.ProjectMembers.Remove(membership);
         await _db.SaveChangesAsync();
     }
+    public async Task DeleteAsync(int projectId, int userId, UserRole userRole)
+    {
+        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        if (project is null)
+            throw new KeyNotFoundException("Project not found.");
 
+        if (userRole != UserRole.Admin && project.Team.OwnerId != userId)
+            throw new UnauthorizedAccessException("Only the team owner or an admin can delete this project.");
+
+
+        var tasks = await _db.TaskItems
+            .Include(t => t.Comments)
+            .Where(t => t.ProjectId == projectId)
+            .ToListAsync();
+        var members = await _db.ProjectMembers.Where(m => m.ProjectId == projectId).ToListAsync();
+        var logs = await _db.ActivityLogs.Where(a => a.ProjectId == projectId).ToListAsync();
+
+        _db.Comments.RemoveRange(tasks.SelectMany(t => t.Comments).ToList());
+        _db.TaskItems.RemoveRange(tasks);
+        _db.ProjectMembers.RemoveRange(members);
+
+        foreach (var log in logs)
+            log.ProjectId = null;
+
+        _db.Projects.Remove(project);
+        await _db.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(userId, null, "Deleted project", "Project", projectId, project.Name);
+    }
     public async Task<IEnumerable<ProjectMemberResponse>> GetMembersAsync(int projectId, int requestingUserId, UserRole requestingUserRole)
     {
         var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);

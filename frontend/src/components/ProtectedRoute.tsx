@@ -1,20 +1,16 @@
 import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-    const { user, isLoading } = useAuth()
-
-    if (isLoading) {
-        return (
-            <div className="h-screen w-full flex items-center justify-center bg-app-base text-app-muted">
-                Loading...
-            </div>
-        )
-    }
+    const { user, signedOutReason } = useAuth()
+    const location = useLocation()
 
     if (!user) {
-        return <Navigate to="/login" replace />
+        // Remember where the person was heading so login can send them back,
+        // except after an explicit logout, where starting fresh is the expectation.
+        const from = signedOutReason === 'manual' ? undefined : location.pathname + location.search
+        return <Navigate to="/login" replace state={from ? { from } : undefined} />
     }
 
     return <>{children}</>

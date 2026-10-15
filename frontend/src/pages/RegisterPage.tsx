@@ -29,10 +29,10 @@ export function RegisterPage() {
     }
 
     return (
-        <div className="fixed inset-0 bg-app-base flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 bg-app-base overflow-x-hidden overflow-y-auto flex flex-col p-4">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-app-accent/10 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="w-full max-w-sm relative z-10">
+            <div className="w-full max-w-sm relative z-10 m-auto">
                 <div className="flex items-center justify-center gap-2 mb-8">
                     <div className="w-8 h-8 rounded-md bg-app-accent flex items-center justify-center text-white shadow-glow">
                         <Layers className="w-5 h-5" />

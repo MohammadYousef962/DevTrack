@@ -131,4 +131,94 @@ public class ProjectServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _sut.UpdateStatusAsync(project.Id, owner.Id, UserRole.ProjectManager, "NotAStatus"));
     }
+
+    [Fact]
+    public async Task RemoveMemberAsync_UnassignsTheRemovedMembersTasksInThatProject()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var developer = new User { FullName = "Dev", Email = "dev@example.com", PasswordHash = "x", Role = UserRole.Developer };
+        var project = new Project { Name = "Project", TeamId = team.Id, StartDate = DateTime.UtcNow };
+        _db.Users.Add(developer);
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        _db.ProjectMembers.Add(new ProjectMember { ProjectId = project.Id, UserId = developer.Id });
+        var devTask = new TaskItem { Title = "Dev's task", ProjectId = project.Id, CreatorId = owner.Id, AssigneeId = developer.Id };
+        var ownerTask = new TaskItem { Title = "Owner's task", ProjectId = project.Id, CreatorId = owner.Id, AssigneeId = owner.Id };
+        _db.TaskItems.AddRange(devTask, ownerTask);
+        await _db.SaveChangesAsync();
+
+        await _sut.RemoveMemberAsync(project.Id, owner.Id, UserRole.ProjectManager, developer.Id);
+
+        var devTaskAfter = await _db.TaskItems.AsNoTracking().FirstAsync(t => t.Id == devTask.Id);
+        var ownerTaskAfter = await _db.TaskItems.AsNoTracking().FirstAsync(t => t.Id == ownerTask.Id);
+        Assert.Null(devTaskAfter.AssigneeId);
+        Assert.Equal(owner.Id, ownerTaskAfter.AssigneeId);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RemovesProjectTasksCommentsAndMembers_AndDetachesActivityLogs()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Doomed project", TeamId = team.Id, StartDate = DateTime.UtcNow };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        _db.ProjectMembers.Add(new ProjectMember { ProjectId = project.Id, UserId = owner.Id });
+        var task = new TaskItem { Title = "Task", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        _db.Comments.Add(new Comment { Content = "A comment", TaskItemId = task.Id, AuthorId = owner.Id });
+        _db.ActivityLogs.Add(new ActivityLog { UserId = owner.Id, ProjectId = project.Id, Action = "Created task", EntityType = "Task", EntityId = task.Id });
+        await _db.SaveChangesAsync();
+
+        await _sut.DeleteAsync(project.Id, owner.Id, UserRole.ProjectManager);
+
+        Assert.Empty(await _db.Projects.AsNoTracking().ToListAsync());
+        Assert.Empty(await _db.TaskItems.AsNoTracking().ToListAsync());
+        Assert.Empty(await _db.Comments.AsNoTracking().ToListAsync());
+        Assert.Empty(await _db.ProjectMembers.AsNoTracking().ToListAsync());
+
+        var log = await _db.ActivityLogs.AsNoTracking().SingleAsync();
+        Assert.Null(log.ProjectId);
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, null, "Deleted project", "Project", project.Id, "Doomed project"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ByNonOwnerNonAdmin_ThrowsUnauthorizedAccessException()
+    {
+        var (_, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Protected", TeamId = team.Id, StartDate = DateTime.UtcNow };
+        var outsider = new User { FullName = "Outsider", Email = "outsider@example.com", PasswordHash = "x", Role = UserRole.Developer };
+        _db.Projects.Add(project);
+        _db.Users.Add(outsider);
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _sut.DeleteAsync(project.Id, outsider.Id, UserRole.Developer));
+
+        Assert.NotNull(await _db.Projects.FindAsync(project.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithUnknownProject_ThrowsKeyNotFoundException()
+    {
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _sut.DeleteAsync(9999, 1, UserRole.Admin));
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_WithNumericStatus_ThrowsInvalidOperationException()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Status Test", TeamId = team.Id, StartDate = DateTime.UtcNow };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.UpdateStatusAsync(project.Id, owner.Id, UserRole.ProjectManager, "99"));
+    }
 }

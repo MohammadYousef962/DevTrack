@@ -6,6 +6,7 @@ using DevTrack.Domain.Enums;
 using DevTrack.Infrastructure.Data;
 using DevTrack.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace DevTrack.Tests.UnitTests;
@@ -136,5 +137,23 @@ public class AuthServiceTests
 
         Assert.Equal("real-token", result.Token);
         Assert.Equal("user@example.com", result.Email);
+    }
+
+    [Fact]
+    public async Task LoginAsync_ReturnsTheUsersProfileImageUrl()
+    {
+        var db = TestDbContextFactory.Create();
+        db.Users.Add(new User { FullName = "Pic", Email = "pic@example.com", PasswordHash = "hash", IsActive = true, ProfileImageUrl = "https://example.com/me.png" });
+        await db.SaveChangesAsync();
+
+        var passwordHasher = new Mock<IPasswordHasher>();
+        passwordHasher.Setup(h => h.Verify(It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+        var tokenService = new Mock<ITokenService>();
+        tokenService.Setup(t => t.GenerateAccessToken(It.IsAny<User>())).Returns("token");
+        var sut = new AuthService(db, passwordHasher.Object, tokenService.Object, NullLogger<AuthService>.Instance);
+
+        var result = await sut.LoginAsync(new LoginRequest { Email = "pic@example.com", Password = "whatever" });
+
+        Assert.Equal("https://example.com/me.png", result.ProfileImageUrl);
     }
 }
