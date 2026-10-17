@@ -221,4 +221,112 @@ public class ProjectServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _sut.UpdateStatusAsync(project.Id, owner.Id, UserRole.ProjectManager, "99"));
     }
+    [Fact]
+    public async Task UpdateAsync_LogsOnlyTheFieldsThatChanged()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Old name", Description = "Same", TeamId = team.Id, StartDate = new DateTime(2026, 1, 1) };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdateAsync(project.Id, owner.Id, UserRole.ProjectManager,
+            new UpdateProjectRequest
+            {
+                Name = "New name",
+                Description = "Same",
+                StartDate = new DateTime(2026, 1, 1),
+                DueDate = new DateTime(2026, 6, 1)
+            });
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Updated project", "Project", project.Id, "name, due date"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithNothingChanged_LogsNothing()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Same name", Description = null, TeamId = team.Id, StartDate = new DateTime(2026, 1, 1) };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdateAsync(project.Id, owner.Id, UserRole.ProjectManager,
+            new UpdateProjectRequest
+            {
+                Name = "Same name",
+                Description = "",
+                StartDate = new DateTime(2026, 1, 1, 9, 30, 0)
+            });
+
+        _activityLogMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_LogsTheChange()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Project", TeamId = team.Id, StartDate = DateTime.UtcNow, Status = ProjectStatus.Planning };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdateStatusAsync(project.Id, owner.Id, UserRole.ProjectManager, "Active");
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Changed project status", "Project", project.Id, "Planning \u2192 Active"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_WithTheSameStatus_LogsNothing()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Project", TeamId = team.Id, StartDate = DateTime.UtcNow, Status = ProjectStatus.Active };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdateStatusAsync(project.Id, owner.Id, UserRole.ProjectManager, "active");
+
+        _activityLogMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task AddMemberAsync_LogsTheNewMembersName()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Project", TeamId = team.Id, StartDate = DateTime.UtcNow };
+        var developer = new User { FullName = "Dana Developer", Email = "dana@example.com", PasswordHash = "x", Role = UserRole.Developer };
+        _db.Projects.Add(project);
+        _db.Users.Add(developer);
+        await _db.SaveChangesAsync();
+
+        _db.TeamMembers.Add(new TeamMember { TeamId = team.Id, UserId = developer.Id });
+        await _db.SaveChangesAsync();
+
+        await _sut.AddMemberAsync(project.Id, owner.Id, UserRole.ProjectManager, developer.Id);
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Added project member", "Project", project.Id, "Dana Developer"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RemoveMemberAsync_LogsTheRemovedMembersName()
+    {
+        var (owner, team) = await SeedOwnerAndTeamAsync();
+        var project = new Project { Name = "Project", TeamId = team.Id, StartDate = DateTime.UtcNow };
+        var developer = new User { FullName = "Dana Developer", Email = "dana@example.com", PasswordHash = "x", Role = UserRole.Developer };
+        _db.Projects.Add(project);
+        _db.Users.Add(developer);
+        await _db.SaveChangesAsync();
+
+        _db.ProjectMembers.Add(new ProjectMember { ProjectId = project.Id, UserId = developer.Id });
+        await _db.SaveChangesAsync();
+
+        await _sut.RemoveMemberAsync(project.Id, owner.Id, UserRole.ProjectManager, developer.Id);
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Removed project member", "Project", project.Id, "Dana Developer"),
+            Times.Once);
+    }
 }

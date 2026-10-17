@@ -3,18 +3,22 @@ using DevTrack.Domain.Entities;
 using DevTrack.Domain.Enums;
 using DevTrack.Infrastructure.Data;
 using DevTrack.Infrastructure.Services;
+using DevTrack.Application.Interfaces;
+using Moq;
 
 namespace DevTrack.Tests.UnitTests;
 
 public class CommentServiceTests
 {
     private readonly DevTrackDbContext _db;
+    private readonly Mock<IActivityLogService> _activityLogMock;
     private readonly CommentService _sut;
 
     public CommentServiceTests()
     {
         _db = TestDbContextFactory.Create();
-        _sut = new CommentService(_db);
+        _activityLogMock = new Mock<IActivityLogService>();
+        _sut = new CommentService(_db, _activityLogMock.Object);
     }
 
     private async Task<(User owner, TaskItem task)> SeedTaskAsync(bool archived = false)
@@ -131,5 +135,27 @@ public class CommentServiceTests
         await _sut.DeleteAsync(comment.Id, owner.Id, UserRole.ProjectManager);
 
         Assert.Null(await _db.Comments.FindAsync(comment.Id));
+    }
+    [Fact]
+    public async Task CreateAsync_LogsTheCommentOnTheTasksProject()
+    {
+        var (owner, task) = await SeedTaskAsync();
+
+        await _sut.CreateAsync(task.Id, owner.Id, UserRole.ProjectManager, new CreateCommentRequest { Content = "Looks good" });
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, task.ProjectId, "Added comment", "Task", task.Id, null),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenRejected_LogsNothing()
+    {
+        var (owner, task) = await SeedTaskAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.CreateAsync(task.Id, owner.Id, UserRole.ProjectManager, new CreateCommentRequest { Content = "" }));
+
+        _activityLogMock.VerifyNoOtherCalls();
     }
 }

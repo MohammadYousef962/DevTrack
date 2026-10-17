@@ -191,4 +191,100 @@ public class TaskServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _sut.UpdatePriorityAsync(task.Id, owner.Id, UserRole.ProjectManager, "99"));
     }
+    [Fact]
+    public async Task UpdateAsync_LogsOnlyTheFieldsThatChanged()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem { Title = "Old title", Description = "Same", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdateAsync(task.Id, owner.Id, UserRole.ProjectManager,
+            new UpdateTaskRequest { Title = "New title", Description = "Same", DueDate = new DateTime(2026, 12, 1) });
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Updated task", "Task", task.Id, "title, due date"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithNothingChanged_LogsNothing()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem
+        {
+            Title = "Same title",
+            Description = null,
+            DueDate = new DateTime(2026, 12, 1),
+            ProjectId = project.Id,
+            CreatorId = owner.Id
+        };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        // An empty description counts as none, and a time of day doesn't make it a different due date.
+        await _sut.UpdateAsync(task.Id, owner.Id, UserRole.ProjectManager,
+            new UpdateTaskRequest { Title = "Same title", Description = "", DueDate = new DateTime(2026, 12, 1, 15, 30, 0) });
+
+        _activityLogMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task UpdatePriorityAsync_LogsTheChange()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem { Title = "Task", ProjectId = project.Id, CreatorId = owner.Id, Priority = TaskPriority.Medium };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdatePriorityAsync(task.Id, owner.Id, UserRole.ProjectManager, "Critical");
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Changed task priority", "Task", task.Id, "Medium \u2192 Critical"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePriorityAsync_WithTheSamePriority_LogsNothing()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem { Title = "Task", ProjectId = project.Id, CreatorId = owner.Id, Priority = TaskPriority.High };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await _sut.UpdatePriorityAsync(task.Id, owner.Id, UserRole.ProjectManager, "high");
+
+        _activityLogMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_LogsTheDeletedTasksTitle()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var task = new TaskItem { Title = "Doomed task", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+        var taskId = task.Id;
+
+        await _sut.DeleteAsync(taskId, owner.Id, UserRole.ProjectManager);
+
+        _activityLogMock.Verify(
+            a => a.LogAsync(owner.Id, project.Id, "Deleted task", "Task", taskId, "Doomed task"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ByNonOwner_LogsNothing()
+    {
+        var (owner, project) = await SeedProjectAsync();
+        var developer = await AddProjectMemberAsync(project.Id, UserRole.Developer, "dev@example.com");
+        var task = new TaskItem { Title = "Protected", ProjectId = project.Id, CreatorId = owner.Id };
+        _db.TaskItems.Add(task);
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _sut.DeleteAsync(task.Id, developer.Id, UserRole.Developer));
+
+        _activityLogMock.VerifyNoOtherCalls();
+    }
 }

@@ -215,10 +215,19 @@ public class TaskService : ITaskService
         if (string.IsNullOrWhiteSpace(request.Title))
             throw new InvalidOperationException("Task title is required.");
 
+        // Only fields that really changed are recorded, so saving a form without edits logs nothing.
+        var changes = new List<string>();
+        if (task.Title != request.Title) changes.Add("title");
+        if ((task.Description ?? "") != (request.Description ?? "")) changes.Add("description");
+        if (task.DueDate?.Date != request.DueDate?.Date) changes.Add("due date");
+
         task.Title = request.Title;
         task.Description = request.Description;
         task.DueDate = request.DueDate;
         await _db.SaveChangesAsync();
+
+        if (changes.Count > 0)
+            await _activityLogService.LogAsync(userId, task.ProjectId, "Updated task", "Task", task.Id, string.Join(", ", changes));
 
         return ToResponse(task, task.Project.Name);
     }
@@ -325,8 +334,12 @@ public class TaskService : ITaskService
         if (!isAuthorized)
             throw new UnauthorizedAccessException("Only the team owner, admin, or task creator can change this task's priority.");
 
+        var oldPriority = task.Priority;
         task.Priority = parsedPriority;
         await _db.SaveChangesAsync();
+
+        if (oldPriority != parsedPriority)
+            await _activityLogService.LogAsync(userId, task.ProjectId, "Changed task priority", "Task", task.Id, $"{oldPriority} \u2192 {parsedPriority}");
 
         return ToResponse(task, task.Project.Name);
     }
@@ -347,8 +360,13 @@ public class TaskService : ITaskService
         if (userRole != UserRole.Admin && task.Project.Team.OwnerId != userId)
             throw new UnauthorizedAccessException("Only the team owner or an admin can delete this task.");
 
+        var projectId = task.ProjectId;
+        var title = task.Title;
+
         _db.Comments.RemoveRange(task.Comments);
         _db.TaskItems.Remove(task);
         await _db.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(userId, projectId, "Deleted task", "Task", taskId, title);
     }
 }

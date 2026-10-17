@@ -5,15 +5,18 @@ using DevTrack.Domain.Enums;
 using DevTrack.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+
 namespace DevTrack.Infrastructure.Services;
 
 public class CommentService : ICommentService
 {
     private readonly DevTrackDbContext _db;
+    private readonly IActivityLogService _activityLogService;
 
-    public CommentService(DevTrackDbContext db)
+    public CommentService(DevTrackDbContext db, IActivityLogService activityLogService)
     {
         _db = db;
+        _activityLogService = activityLogService;
     }
 
     public async Task<CommentResponse> CreateAsync(int taskId, int userId, UserRole userRole, CreateCommentRequest request)
@@ -52,6 +55,9 @@ public class CommentService : ICommentService
         await _db.SaveChangesAsync();
 
         await _db.Entry(comment).Reference(c => c.Author).LoadAsync();
+
+        // The comment's text is deliberately not copied into the log. The entry only says who commented where.
+        await _activityLogService.LogAsync(userId, task.ProjectId, "Added comment", "Task", taskId);
 
         return ToResponse(comment);
     }

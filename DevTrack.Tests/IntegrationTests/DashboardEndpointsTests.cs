@@ -122,8 +122,7 @@ public class DashboardEndpointsTests : IClassFixture<CustomWebApplicationFactory
         var scenario = await BuildScenarioAsync();
 
         AuthHelper.AuthorizeAs(_client, scenario.AdminToken);
-        Assert.Equal(3, await TotalCountAsync("/api/activity?pageSize=1")); // project created + two tasks
-
+        Assert.Equal(4, await TotalCountAsync("/api/activity?pageSize=1")); // project created + member added + two tasks
         foreach (var (label, token) in EveryKindOfUser(scenario))
         {
             AuthHelper.AuthorizeAs(_client, token);

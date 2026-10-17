@@ -13,13 +13,18 @@ public class ProjectService : IProjectService
     private readonly DevTrackDbContext _db;
     private readonly IActivityLogService _activityLogService;
 
-    public ProjectService(DevTrackDbContext db, IActivityLogService activityLogService)
+    public ProjectService(
+        DevTrackDbContext db,
+        IActivityLogService activityLogService)
     {
         _db = db;
         _activityLogService = activityLogService;
     }
 
-    public async Task<ProjectResponse> CreateAsync(int userId, UserRole userRole, CreateProjectRequest request)
+    public async Task<ProjectResponse> CreateAsync(
+        int userId,
+        UserRole userRole,
+        CreateProjectRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new InvalidOperationException("Project name is required.");
@@ -28,11 +33,13 @@ public class ProjectService : IProjectService
             throw new InvalidOperationException("Due date cannot be before start date.");
 
         var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == request.TeamId);
+
         if (team is null)
             throw new KeyNotFoundException("Team not found.");
 
         if (userRole != UserRole.Admin && team.OwnerId != userId)
-            throw new UnauthorizedAccessException("Only the team owner or an admin can create projects for this team.");
+            throw new UnauthorizedAccessException(
+                "Only the team owner or an admin can create projects for this team.");
 
         var project = new Project
         {
@@ -47,41 +54,65 @@ public class ProjectService : IProjectService
         _db.Projects.Add(project);
         await _db.SaveChangesAsync();
 
-        _db.ProjectMembers.Add(new ProjectMember { ProjectId = project.Id, UserId = userId });
+        _db.ProjectMembers.Add(new ProjectMember
+        {
+            ProjectId = project.Id,
+            UserId = userId
+        });
+
         await _db.SaveChangesAsync();
 
-        await _activityLogService.LogAsync(userId, project.Id, "Created project", "Project", project.Id, project.Name);
+        await _activityLogService.LogAsync(
+            userId,
+            project.Id,
+            "Created project",
+            "Project",
+            project.Id,
+            project.Name);
 
         return ToResponse(project, team.Name);
     }
 
-    public async Task<IEnumerable<ProjectResponse>> GetAllForUserAsync(int userId, UserRole userRole)
+    public async Task<IEnumerable<ProjectResponse>> GetAllForUserAsync(
+        int userId,
+        UserRole userRole)
     {
-        IQueryable<Project> query = _db.Projects.AsNoTracking().Include(p => p.Team);
+        IQueryable<Project> query = _db.Projects
+            .AsNoTracking()
+            .Include(p => p.Team);
 
         if (userRole != UserRole.Admin)
         {
             query = query.Where(p =>
-                p.Team.OwnerId == userId || p.Team.Members.Any(m => m.UserId == userId));
+                p.Team.OwnerId == userId ||
+                p.Team.Members.Any(m => m.UserId == userId));
         }
 
         var projects = await query.ToListAsync();
+
         return projects.Select(p => ToResponse(p, p.Team.Name));
     }
 
-    public async Task<ProjectResponse?> GetByIdAsync(int projectId, int userId, UserRole userRole)
+    public async Task<ProjectResponse?> GetByIdAsync(
+        int projectId,
+        int userId,
+        UserRole userRole)
     {
-        var project = await _db.Projects.Include(p => p.Team).ThenInclude(t => t.Members)
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .ThenInclude(t => t.Members)
             .FirstOrDefaultAsync(p => p.Id == projectId);
 
-        if (project is null) return null;
+        if (project is null)
+            return null;
 
         var isAuthorized = userRole == UserRole.Admin
             || project.Team.OwnerId == userId
             || project.Team.Members.Any(m => m.UserId == userId);
 
         if (!isAuthorized)
-            throw new UnauthorizedAccessException("You do not have access to this project.");
+            throw new UnauthorizedAccessException(
+                "You do not have access to this project.");
 
         return ToResponse(project, project.Team.Name);
     }
@@ -101,17 +132,27 @@ public class ProjectService : IProjectService
             CreatedAt = project.CreatedAt
         };
     }
-    public async Task<ProjectResponse> UpdateAsync(int projectId, int userId, UserRole userRole, UpdateProjectRequest request)
+
+    public async Task<ProjectResponse> UpdateAsync(
+        int projectId,
+        int userId,
+        UserRole userRole,
+        UpdateProjectRequest request)
     {
-        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
         if (project is null)
             throw new KeyNotFoundException("Project not found.");
 
         if (userRole != UserRole.Admin && project.Team.OwnerId != userId)
-            throw new UnauthorizedAccessException("Only the team owner or an admin can update this project.");
+            throw new UnauthorizedAccessException(
+                "Only the team owner or an admin can update this project.");
 
         if (project.Status == ProjectStatus.Archived)
-            throw new InvalidOperationException("Archived projects cannot be modified.");
+            throw new InvalidOperationException(
+                "Archived projects cannot be modified.");
 
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new InvalidOperationException("Project name is required.");
@@ -119,61 +160,152 @@ public class ProjectService : IProjectService
         if (request.DueDate.HasValue && request.DueDate.Value < request.StartDate)
             throw new InvalidOperationException("Due date cannot be before start date.");
 
+        var changes = new List<string>();
+
+        if (project.Name != request.Name)
+            changes.Add("name");
+
+        if ((project.Description ?? "") != (request.Description ?? ""))
+            changes.Add("description");
+
+        if (project.StartDate.Date != request.StartDate.Date)
+            changes.Add("start date");
+
+        if (project.DueDate?.Date != request.DueDate?.Date)
+            changes.Add("due date");
+
         project.Name = request.Name;
         project.Description = request.Description;
         project.StartDate = request.StartDate;
         project.DueDate = request.DueDate;
+
         await _db.SaveChangesAsync();
+
+        if (changes.Count > 0)
+        {
+            await _activityLogService.LogAsync(
+                userId,
+                project.Id,
+                "Updated project",
+                "Project",
+                project.Id,
+                string.Join(", ", changes));
+        }
 
         return ToResponse(project, project.Team.Name);
     }
 
-    public async Task<ProjectResponse> UpdateStatusAsync(int projectId, int userId, UserRole userRole, string newStatus)
+    public async Task<ProjectResponse> UpdateStatusAsync(
+        int projectId,
+        int userId,
+        UserRole userRole,
+        string newStatus)
     {
-        if (!Enum.TryParse<ProjectStatus>(newStatus, ignoreCase: true, out var parsedStatus) || !Enum.IsDefined(parsedStatus))
-            throw new InvalidOperationException($"'{newStatus}' is not a valid project status.");
+        if (!Enum.TryParse<ProjectStatus>(
+                newStatus,
+                ignoreCase: true,
+                out var parsedStatus)
+            || !Enum.IsDefined(parsedStatus))
+        {
+            throw new InvalidOperationException(
+                $"'{newStatus}' is not a valid project status.");
+        }
 
-        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
         if (project is null)
             throw new KeyNotFoundException("Project not found.");
 
         if (userRole != UserRole.Admin && project.Team.OwnerId != userId)
-            throw new UnauthorizedAccessException("Only the team owner or an admin can change this project's status.");
+            throw new UnauthorizedAccessException(
+                "Only the team owner or an admin can change this project's status.");
+
+        var oldStatus = project.Status;
 
         project.Status = parsedStatus;
+
         await _db.SaveChangesAsync();
+
+        if (oldStatus != parsedStatus)
+        {
+            await _activityLogService.LogAsync(
+                userId,
+                project.Id,
+                "Changed project status",
+                "Project",
+                project.Id,
+                $"{oldStatus} → {parsedStatus}");
+        }
 
         return ToResponse(project, project.Team.Name);
     }
-    public async Task<ProjectMemberResponse> AddMemberAsync(int projectId, int requestingUserId, UserRole requestingUserRole, int newMemberUserId)
+
+    public async Task<ProjectMemberResponse> AddMemberAsync(
+        int projectId,
+        int requestingUserId,
+        UserRole requestingUserRole,
+        int newMemberUserId)
     {
-        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
         if (project is null)
             throw new KeyNotFoundException("Project not found.");
 
-        if (requestingUserRole != UserRole.Admin && project.Team.OwnerId != requestingUserId)
-            throw new UnauthorizedAccessException("Only the team owner or an admin can add project members.");
+        if (requestingUserRole != UserRole.Admin &&
+            project.Team.OwnerId != requestingUserId)
+        {
+            throw new UnauthorizedAccessException(
+                "Only the team owner or an admin can add project members.");
+        }
 
         if (project.Status == ProjectStatus.Archived)
-            throw new InvalidOperationException("Archived projects cannot be modified.");
+            throw new InvalidOperationException(
+                "Archived projects cannot be modified.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == newMemberUserId);
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == newMemberUserId);
+
         if (user is null)
             throw new KeyNotFoundException("User not found.");
 
         var isTeamMember = await _db.TeamMembers
-            .AnyAsync(m => m.TeamId == project.TeamId && m.UserId == newMemberUserId);
+            .AnyAsync(m =>
+                m.TeamId == project.TeamId &&
+                m.UserId == newMemberUserId);
+
         if (!isTeamMember)
-            throw new InvalidOperationException("User must be a member of the project's team first.");
+            throw new InvalidOperationException(
+                "User must be a member of the project's team first.");
 
         var alreadyMember = await _db.ProjectMembers
-            .AnyAsync(m => m.ProjectId == projectId && m.UserId == newMemberUserId);
-        if (alreadyMember)
-            throw new ConflictException("User is already a member of this project.");
+            .AnyAsync(m =>
+                m.ProjectId == projectId &&
+                m.UserId == newMemberUserId);
 
-        var member = new ProjectMember { ProjectId = projectId, UserId = newMemberUserId };
+        if (alreadyMember)
+            throw new ConflictException(
+                "User is already a member of this project.");
+
+        var member = new ProjectMember
+        {
+            ProjectId = projectId,
+            UserId = newMemberUserId
+        };
+
         _db.ProjectMembers.Add(member);
         await _db.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(
+            requestingUserId,
+            projectId,
+            "Added project member",
+            "Project",
+            projectId,
+            user.FullName);
 
         return new ProjectMemberResponse
         {
@@ -184,50 +316,98 @@ public class ProjectService : IProjectService
         };
     }
 
-    public async Task RemoveMemberAsync(int projectId, int requestingUserId, UserRole requestingUserRole, int memberUserId)
+    public async Task RemoveMemberAsync(
+        int projectId,
+        int requestingUserId,
+        UserRole requestingUserRole,
+        int memberUserId)
     {
-        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
         if (project is null)
             throw new KeyNotFoundException("Project not found.");
 
-        if (requestingUserRole != UserRole.Admin && project.Team.OwnerId != requestingUserId)
-            throw new UnauthorizedAccessException("Only the team owner or an admin can remove project members.");
+        if (requestingUserRole != UserRole.Admin &&
+            project.Team.OwnerId != requestingUserId)
+        {
+            throw new UnauthorizedAccessException(
+                "Only the team owner or an admin can remove project members.");
+        }
 
         if (project.Status == ProjectStatus.Archived)
-            throw new InvalidOperationException("Archived projects cannot be modified.");
+            throw new InvalidOperationException(
+                "Archived projects cannot be modified.");
 
         var membership = await _db.ProjectMembers
-            .FirstOrDefaultAsync(m => m.ProjectId == projectId && m.UserId == memberUserId);
+            .FirstOrDefaultAsync(m =>
+                m.ProjectId == projectId &&
+                m.UserId == memberUserId);
+
         if (membership is null)
-            throw new KeyNotFoundException("This user is not a member of this project.");
+            throw new KeyNotFoundException(
+                "This user is not a member of this project.");
 
         var assignedTasks = await _db.TaskItems
-            .Where(t => t.ProjectId == projectId && t.AssigneeId == memberUserId)
+            .Where(t =>
+                t.ProjectId == projectId &&
+                t.AssigneeId == memberUserId)
             .ToListAsync();
+
         foreach (var task in assignedTasks)
             task.AssigneeId = null;
 
+        var memberName = await _db.Users
+            .Where(u => u.Id == memberUserId)
+            .Select(u => u.FullName)
+            .FirstOrDefaultAsync() ?? "Unknown user";
+
         _db.ProjectMembers.Remove(membership);
+
         await _db.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(
+            requestingUserId,
+            projectId,
+            "Removed project member",
+            "Project",
+            projectId,
+            memberName);
     }
-    public async Task DeleteAsync(int projectId, int userId, UserRole userRole)
+
+    public async Task DeleteAsync(
+        int projectId,
+        int userId,
+        UserRole userRole)
     {
-        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
         if (project is null)
             throw new KeyNotFoundException("Project not found.");
 
         if (userRole != UserRole.Admin && project.Team.OwnerId != userId)
-            throw new UnauthorizedAccessException("Only the team owner or an admin can delete this project.");
-
+            throw new UnauthorizedAccessException(
+                "Only the team owner or an admin can delete this project.");
 
         var tasks = await _db.TaskItems
             .Include(t => t.Comments)
             .Where(t => t.ProjectId == projectId)
             .ToListAsync();
-        var members = await _db.ProjectMembers.Where(m => m.ProjectId == projectId).ToListAsync();
-        var logs = await _db.ActivityLogs.Where(a => a.ProjectId == projectId).ToListAsync();
 
-        _db.Comments.RemoveRange(tasks.SelectMany(t => t.Comments).ToList());
+        var members = await _db.ProjectMembers
+            .Where(m => m.ProjectId == projectId)
+            .ToListAsync();
+
+        var logs = await _db.ActivityLogs
+            .Where(a => a.ProjectId == projectId)
+            .ToListAsync();
+
+        _db.Comments.RemoveRange(
+            tasks.SelectMany(t => t.Comments).ToList());
+
         _db.TaskItems.RemoveRange(tasks);
         _db.ProjectMembers.RemoveRange(members);
 
@@ -235,25 +415,42 @@ public class ProjectService : IProjectService
             log.ProjectId = null;
 
         _db.Projects.Remove(project);
+
         await _db.SaveChangesAsync();
 
-        await _activityLogService.LogAsync(userId, null, "Deleted project", "Project", projectId, project.Name);
+        await _activityLogService.LogAsync(
+            userId,
+            null,
+            "Deleted project",
+            "Project",
+            projectId,
+            project.Name);
     }
-    public async Task<IEnumerable<ProjectMemberResponse>> GetMembersAsync(int projectId, int requestingUserId, UserRole requestingUserRole)
+
+    public async Task<IEnumerable<ProjectMemberResponse>> GetMembersAsync(
+        int projectId,
+        int requestingUserId,
+        UserRole requestingUserRole)
     {
-        var project = await _db.Projects.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _db.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
         if (project is null)
             throw new KeyNotFoundException("Project not found.");
 
         var isTeamMember = await _db.TeamMembers
-            .AnyAsync(m => m.TeamId == project.TeamId && m.UserId == requestingUserId);
+            .AnyAsync(m =>
+                m.TeamId == project.TeamId &&
+                m.UserId == requestingUserId);
 
         var isAuthorized = requestingUserRole == UserRole.Admin
             || project.Team.OwnerId == requestingUserId
             || isTeamMember;
 
         if (!isAuthorized)
-            throw new UnauthorizedAccessException("You do not have access to this project.");
+            throw new UnauthorizedAccessException(
+                "You do not have access to this project.");
 
         return await _db.ProjectMembers
             .AsNoTracking()
