@@ -2,6 +2,8 @@
 using DevTrack.Application.Interfaces;
 using DevTrack.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using DevTrack.Application.Common;
+using DevTrack.Domain.Entities;
 
 namespace DevTrack.Infrastructure.Services;
 
@@ -31,7 +33,6 @@ public class UserService : IUserService
             throw new InvalidOperationException("Full name is required.");
 
         user.FullName = request.FullName;
-        user.ProfileImageUrl = request.ProfileImageUrl;
 
         await _db.SaveChangesAsync();
 
@@ -121,5 +122,64 @@ public class UserService : IUserService
             FullName = user.FullName,
             Email = user.Email
         };
+    }
+    public async Task<UserResponse> SetAvatarAsync(int userId, byte[] data)
+    {
+        if (data.Length == 0)
+            throw new InvalidOperationException("No picture was uploaded.");
+
+        if (data.Length > AvatarRules.MaxBytes)
+            throw new InvalidOperationException($"The picture is too large. The limit is {AvatarRules.MaxBytes / 1024} KB.");
+
+        var contentType = AvatarRules.DetectContentType(data);
+        if (contentType is null)
+            throw new InvalidOperationException("The picture must be a JPEG, PNG or WebP image.");
+
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null)
+            throw new KeyNotFoundException("User not found.");
+
+        var avatar = await _db.UserAvatars.FindAsync(userId);
+        if (avatar is null)
+        {
+            avatar = new UserAvatar { UserId = userId };
+            _db.UserAvatars.Add(avatar);
+        }
+
+        avatar.Data = data;
+        avatar.ContentType = contentType;
+        avatar.UpdatedAt = DateTime.UtcNow;
+
+        // The version in the address changes with every upload, so a browser never shows a stale picture.
+        user.ProfileImageUrl = $"/api/users/{userId}/avatar?v={avatar.UpdatedAt.Ticks}";
+
+        await _db.SaveChangesAsync();
+
+        return UserResponse.FromEntity(user);
+    }
+
+    public async Task<UserResponse> RemoveAvatarAsync(int userId)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null)
+            throw new KeyNotFoundException("User not found.");
+
+        var avatar = await _db.UserAvatars.FindAsync(userId);
+        if (avatar is not null)
+            _db.UserAvatars.Remove(avatar);
+
+        user.ProfileImageUrl = null;
+        await _db.SaveChangesAsync();
+
+        return UserResponse.FromEntity(user);
+    }
+
+    public async Task<AvatarFile?> GetAvatarAsync(int userId)
+    {
+        return await _db.UserAvatars
+            .AsNoTracking()
+            .Where(a => a.UserId == userId)
+            .Select(a => new AvatarFile(a.Data, a.ContentType))
+            .FirstOrDefaultAsync();
     }
 }

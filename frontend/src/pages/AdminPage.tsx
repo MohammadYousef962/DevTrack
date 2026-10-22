@@ -8,6 +8,7 @@ import { parseApiDate } from '../lib/dates'
 import { roleLabel, userRoles, type UserRoleName } from '../lib/roles'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { UserResponse } from '../types/user'
+import { Avatar } from '../components/Avatar'
 
 type PendingChange =
     | { kind: 'role'; user: UserResponse; newRole: UserRoleName }
@@ -190,9 +191,7 @@ export function AdminPage() {
                                     <tr key={u.id}>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded-full bg-app-accent flex items-center justify-center text-white text-xs font-semibold shrink-0">
-                                                    {u.fullName.charAt(0)}
-                                                </div>
+                                                <Avatar name={u.fullName} imageUrl={u.profileImageUrl} size="sm" />
                                                 <div className="min-w-0">
                                                     <p className="font-medium text-app-text truncate">
                                                         {u.fullName}

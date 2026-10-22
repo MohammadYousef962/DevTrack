@@ -1,10 +1,9 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronRight, Loader2, UserPlus } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Loader2, UserPlus } from 'lucide-react'
 import {
     addProjectMember,
     deleteProject,
-    getProject,
     getProjectMembers,
     removeProjectMember,
     updateProject,
@@ -14,9 +13,8 @@ import { getTasks } from '../api/tasks'
 import { getTeamMembers, getTeams } from '../api/teams'
 import { getErrorMessage } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
+import { useProjectContext } from '../context/useProjectContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { ProjectTabs } from '../components/ProjectTabs'
-import { projectStatusStyles } from '../lib/styles'
 import type { ProjectMemberResponse, ProjectResponse, ProjectStatus } from '../types/project'
 import type { TeamMemberResponse, TeamResponse } from '../types/team'
 
@@ -26,12 +24,12 @@ const selectClass = `${inputClass} disabled:opacity-60 disabled:cursor-not-allow
 const statuses: ProjectStatus[] = ['Planning', 'Active', 'Completed', 'Archived']
 
 export function ProjectSettingsPage() {
-    const { projectId } = useParams()
-    const id = Number(projectId)
+    const { project, setProject } = useProjectContext()
+    const id = project.id
+    const teamId = project.teamId
     const { user } = useAuth()
     const navigate = useNavigate()
 
-    const [project, setProject] = useState<ProjectResponse | null>(null)
     const [members, setMembers] = useState<ProjectMemberResponse[]>([])
     const [teamMembers, setTeamMembers] = useState<TeamMemberResponse[] | null>(null)
     const [taskCount, setTaskCount] = useState<number | null>(null)
@@ -50,18 +48,15 @@ export function ProjectSettingsPage() {
     useEffect(() => {
         let cancelled = false
         Promise.all([
-            getProject(id),
             getProjectMembers(id),
             getTeams().catch((): TeamResponse[] => []),
             getTasks({ projectId: id, pageSize: 1 }).catch(() => null),
         ])
-            .then(async ([projectData, membersData, teamsData, tasksData]) => {
-                const manage =
-                    role === 'Admin' || teamsData.some((t) => t.id === projectData.teamId && t.ownerId === userId)
+            .then(async ([membersData, teamsData, tasksData]) => {
+                const manage = role === 'Admin' || teamsData.some((t) => t.id === teamId && t.ownerId === userId)
                 // Only managers can add members, so only they need the team's member list.
-                const teamMembersData = manage ? await getTeamMembers(projectData.teamId).catch(() => null) : null
+                const teamMembersData = manage ? await getTeamMembers(teamId).catch(() => null) : null
                 if (cancelled) return
-                setProject(projectData)
                 setMembers(membersData)
                 setTaskCount(tasksData ? tasksData.totalCount : null)
                 setCanManage(manage)
@@ -77,7 +72,7 @@ export function ProjectSettingsPage() {
         return () => {
             cancelled = true
         }
-    }, [id, role, userId, attempt])
+    }, [id, teamId, role, userId, attempt])
 
     async function handleDeleteProject() {
         setDeleteError('')
@@ -99,10 +94,10 @@ export function ProjectSettingsPage() {
         )
     }
 
-    if (loadError || !project) {
+    if (loadError) {
         return (
             <div className="text-center py-24">
-                <p className="text-app-bug text-sm mb-3">{loadError || 'Project not found.'}</p>
+                <p className="text-app-bug text-sm mb-3">{loadError}</p>
                 <div className="flex items-center justify-center gap-4 text-sm">
                     <button
                         onClick={() => {
@@ -129,30 +124,7 @@ export function ProjectSettingsPage() {
                 : `Its ${taskCount} task${taskCount === 1 ? '' : 's'} and their comments will be deleted too.`
 
     return (
-        <div className="flex flex-col min-h-full">
-            <div className="px-6 py-4 border-b border-app-border bg-app-surface">
-                <div className="flex items-center gap-2 text-sm text-app-muted mb-2">
-                    <Link to="/projects" className="hover:text-app-text transition-colors">
-                        Projects
-                    </Link>
-                    <ChevronRight className="w-3 h-3" />
-                    <Link to={`/projects/${project.id}`} className="hover:text-app-text transition-colors">
-                        {project.name}
-                    </Link>
-                    <ChevronRight className="w-3 h-3" />
-                    <span className="text-app-text font-medium">Settings</span>
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-2xl font-semibold tracking-tight text-app-text">{project.name}</h1>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${projectStatusStyles[project.status]}`}>
-                        {project.status}
-                    </span>
-                    <span className="text-xs text-app-muted">{project.teamName}</span>
-                </div>
-            </div>
-
-            <ProjectTabs projectId={project.id} active="settings" />
-
+        <>
             <div className="p-6 md:p-8 max-w-3xl w-full mx-auto space-y-10">
                 <Section title="Details">
                     <DetailsForm project={project} canManage={canManage} onSaved={setProject} />
@@ -211,7 +183,7 @@ export function ProjectSettingsPage() {
                 onConfirm={handleDeleteProject}
                 onCancel={() => setIsDeleteOpen(false)}
             />
-        </div>
+        </>
     )
 }
 

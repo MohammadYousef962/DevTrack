@@ -40,3 +40,21 @@ export async function updateUserStatus(id: number, isActive: boolean): Promise<U
     const response = await apiClient.patch<UserResponse>(`/users/${id}/status`, { isActive })
     return response.data
 }
+export async function uploadMyAvatar(picture: Blob): Promise<UserResponse> {
+    const response = await apiClient.put<UserResponse>('/users/me/avatar', picture, {
+        headers: { 'Content-Type': picture.type || 'image/jpeg' },
+    })
+    return response.data
+}
+
+export async function removeMyAvatar(): Promise<UserResponse> {
+    const response = await apiClient.delete<UserResponse>('/users/me/avatar')
+    return response.data
+}
+
+// Pictures sit behind the sign-in token, which an <img> tag can't send, so they are downloaded like any API call.
+export async function downloadAvatar(path: string): Promise<Blob> {
+    // The profile stores the address as "/api/users/1/avatar?v=...", and the client already adds "/api".
+    const response = await apiClient.get<Blob>(path.replace(/^\/api/, ''), { responseType: 'blob' })
+    return response.data
+}

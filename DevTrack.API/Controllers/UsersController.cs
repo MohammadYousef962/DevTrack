@@ -3,6 +3,7 @@ using DevTrack.Application.DTOs.Users;
 using DevTrack.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using DevTrack.Application.Common;
 
 namespace DevTrack.API.Controllers;
 
@@ -82,5 +83,44 @@ public class UsersController : ControllerBase
     {
         var result = await _userService.LookupByEmailAsync(email);
         return Ok(result);
+    }
+    [HttpPut("me/avatar")]
+    public async Task<IActionResult> UploadAvatar(CancellationToken cancellationToken)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        // Read at most one byte past the limit, so an oversized upload is rejected without buffering all of it.
+        var buffer = new byte[AvatarRules.MaxBytes + 1];
+        var total = 0;
+        int read;
+        while (total < buffer.Length &&
+               (read = await Request.Body.ReadAsync(buffer.AsMemory(total), cancellationToken)) > 0)
+        {
+            total += read;
+        }
+
+        var updated = await _userService.SetAvatarAsync(userId, buffer[..total]);
+        return Ok(updated);
+    }
+
+    [HttpDelete("me/avatar")]
+    public async Task<IActionResult> RemoveAvatar()
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var updated = await _userService.RemoveAvatarAsync(userId);
+        return Ok(updated);
+    }
+
+    [HttpGet("{id:int}/avatar")]
+    public async Task<IActionResult> GetAvatar(int id)
+    {
+        var avatar = await _userService.GetAvatarAsync(id);
+        if (avatar is null)
+            throw new KeyNotFoundException("This user has no profile picture.");
+
+        // The address carries a version (?v=...), so a given address never changes and can be cached.
+        Response.Headers.CacheControl = "private, max-age=86400";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(avatar.Data, avatar.ContentType);
     }
 }

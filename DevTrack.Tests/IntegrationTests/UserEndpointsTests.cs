@@ -19,36 +19,18 @@ public class UserEndpointsTests : IClassFixture<CustomWebApplicationFactory>, IA
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task UpdateProfile_WithValidValues_UpdatesAndReturnsTheProfile()
+    public async Task UpdateProfile_WithAName_UpdatesAndReturnsTheProfile()
     {
         var token = await AuthHelper.RegisterAndLoginAsync(_client, "profile@example.com");
         AuthHelper.AuthorizeAs(_client, token);
 
-        var request = new UpdateProfileRequest { FullName = "New Name", ProfileImageUrl = "https://example.com/me.png" };
-        var response = await _client.PutAsJsonAsync("/api/users/me", request);
+        var response = await _client.PutAsJsonAsync("/api/users/me", new UpdateProfileRequest { FullName = "New Name" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var profile = await response.Content.ReadFromJsonAsync<UserResponse>();
         Assert.Equal("New Name", profile!.FullName);
-        Assert.Equal("https://example.com/me.png", profile.ProfileImageUrl);
 
         var me = await _client.GetFromJsonAsync<UserResponse>("/api/users/me");
-        Assert.Equal("https://example.com/me.png", me!.ProfileImageUrl);
-    }
-
-    [Fact]
-    public async Task UpdateProfile_WithAbsurdlyLongImageUrl_Returns400()
-    {
-        var token = await AuthHelper.RegisterAndLoginAsync(_client, "longurl@example.com");
-        AuthHelper.AuthorizeAs(_client, token);
-
-        var request = new UpdateProfileRequest
-        {
-            FullName = "Long Url",
-            ProfileImageUrl = "https://example.com/" + new string('a', 3000)
-        };
-        var response = await _client.PutAsJsonAsync("/api/users/me", request);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("New Name", me!.FullName);
     }
 }

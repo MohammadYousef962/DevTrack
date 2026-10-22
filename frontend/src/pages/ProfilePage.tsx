@@ -5,7 +5,7 @@ import { getErrorMessage } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
 import { parseApiDate } from '../lib/dates'
 import { roleLabel, roleStyle } from '../lib/roles'
-import { Avatar } from '../components/Avatar'
+import { AvatarEditor } from '../components/AvatarEditor'
 import type { UserResponse } from '../types/user'
 
 const inputClass =
@@ -75,8 +75,8 @@ export function ProfilePage() {
                 <p className="text-sm text-app-muted mt-1">Your account details and password.</p>
             </header>
 
-            <div className="bg-app-surface border border-app-border rounded-xl p-5 flex items-center gap-4">
-                <Avatar name={profile.fullName} imageUrl={profile.profileImageUrl} size="lg" />
+            <div className="bg-app-surface border border-app-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-5">
+                <AvatarEditor profile={profile} onChanged={handleSaved} />
                 <div className="min-w-0">
                     <p className="text-lg font-semibold text-app-text truncate">{profile.fullName}</p>
                     <p className="text-sm text-app-muted truncate">{profile.email}</p>
@@ -88,6 +88,9 @@ export function ProfilePage() {
                             Member since {parseApiDate(profile.createdAt).toLocaleDateString()}
                         </span>
                     </div>
+                    <p className="text-xs text-app-muted mt-3">
+                        Click your picture to change it. Administrators see it in the user list; everywhere else people see your initials.
+                    </p>
                 </div>
             </div>
 
@@ -113,7 +116,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function ProfileForm({ profile, onSaved }: { profile: UserResponse; onSaved: (profile: UserResponse) => void }) {
     const [fullName, setFullName] = useState(profile.fullName)
-    const [imageUrl, setImageUrl] = useState(profile.profileImageUrl ?? '')
     const [error, setError] = useState('')
     const [saved, setSaved] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
@@ -126,7 +128,7 @@ function ProfileForm({ profile, onSaved }: { profile: UserResponse; onSaved: (pr
         setSaved(false)
         setIsSaving(true)
         try {
-            const updated = await updateMyProfile({ fullName: name, profileImageUrl: imageUrl.trim() || null })
+            const updated = await updateMyProfile({ fullName: name })
             onSaved(updated)
             setSaved(true)
         } catch (err) {
@@ -151,23 +153,6 @@ function ProfileForm({ profile, onSaved }: { profile: UserResponse; onSaved: (pr
                     }}
                     className={inputClass}
                 />
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-app-muted mb-1.5">Profile picture link</label>
-                <input
-                    type="url"
-                    maxLength={2048}
-                    value={imageUrl}
-                    onChange={(e) => {
-                        setImageUrl(e.target.value)
-                        setSaved(false)
-                    }}
-                    placeholder="https://example.com/me.png"
-                    className={inputClass}
-                />
-                <p className="text-xs text-app-muted mt-1.5">
-                    A link to a picture. For now only you see it; other people see your initials. Leave it empty to remove it.
-                </p>
             </div>
 
             <p className="text-xs text-app-muted">Your email and role can only be changed by an administrator.</p>

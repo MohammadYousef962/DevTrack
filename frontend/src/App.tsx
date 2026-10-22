@@ -14,7 +14,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { AdminPage } from './pages/AdminPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/AppLayout'
-
+import { ProjectLayout } from './components/ProjectLayout'
 function App() {
     return (
         <Routes>
@@ -30,9 +30,11 @@ function App() {
             >
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
-                <Route path="/projects/:projectId/activity" element={<ProjectActivityPage />} />
-                <Route path="/projects/:projectId/settings" element={<ProjectSettingsPage />} />
+                <Route path="/projects/:projectId" element={<ProjectLayout />}>
+                    <Route index element={<ProjectBoardPage />} />
+                    <Route path="activity" element={<ProjectActivityPage />} />
+                    <Route path="settings" element={<ProjectSettingsPage />} />
+                </Route>
                 <Route path="/my-tasks" element={<MyTasksPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/teams" element={<TeamsPage />} />

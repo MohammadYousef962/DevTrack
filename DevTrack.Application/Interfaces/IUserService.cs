@@ -11,4 +11,7 @@ public interface IUserService
     Task<UserResponse> UpdateRoleAsync(int userId, string newRole);
     Task<IEnumerable<UserResponse>> GetAllAsync();
     Task<UserLookupResponse> LookupByEmailAsync(string email);
+    Task<UserResponse> SetAvatarAsync(int userId, byte[] data);
+    Task<UserResponse> RemoveAvatarAsync(int userId);
+    Task<AvatarFile?> GetAvatarAsync(int userId);
 }

@@ -1,17 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Plus, Calendar, Loader2, Circle, CircleDot, Check, type LucideIcon } from 'lucide-react'
-import { getProject, getProjectMembers } from '../api/projects'
+import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
+import { Plus, Calendar, Loader2, Circle, CircleDot, Check, type LucideIcon } from 'lucide-react'
+import { getProjectMembers } from '../api/projects'
 import { getTasks, createTask } from '../api/tasks'
 import { getTeams } from '../api/teams'
 import { getErrorMessage } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
+import { useProjectContext } from '../context/useProjectContext'
 import { todayLocal } from '../lib/dates'
 import { Modal } from '../components/Modal'
 import { TaskDetailPanel } from '../components/TaskDetailPanel'
-import { ProjectTabs } from '../components/ProjectTabs'
-import { projectStatusStyles, taskPriorityStyles, taskPriorityOrder, taskStatusLabels } from '../lib/styles'
-import type { ProjectMemberResponse, ProjectResponse } from '../types/project'
+import { taskPriorityStyles, taskPriorityOrder, taskStatusLabels } from '../lib/styles'
+import type { ProjectMemberResponse } from '../types/project'
 import type { TaskResponse, TaskStatus, TaskPriority } from '../types/task'
 import type { TeamResponse } from '../types/team'
 
@@ -24,11 +25,10 @@ const columns: { status: TaskStatus; icon: LucideIcon; color: string }[] = [
 ]
 
 export function ProjectBoardPage() {
-    const { projectId } = useParams()
-    const id = Number(projectId)
+    const { project, headerActions } = useProjectContext()
+    const id = project.id
     const { user } = useAuth()
     const [searchParams, setSearchParams] = useSearchParams()
-    const [project, setProject] = useState<ProjectResponse | null>(null)
     const [tasks, setTasks] = useState<TaskResponse[]>([])
     const [totalTaskCount, setTotalTaskCount] = useState(0)
     const [members, setMembers] = useState<ProjectMemberResponse[]>([])
@@ -45,16 +45,14 @@ export function ProjectBoardPage() {
     useEffect(() => {
         let cancelled = false
         Promise.all([
-            getProject(id),
             getTasks({ projectId: id, pageSize: 200 }),
             // If members or teams can't be loaded, the board should still work; only the
             // assignee dropdown / the owner-only controls are affected.
             getProjectMembers(id).catch((): ProjectMemberResponse[] => []),
             getTeams().catch((): TeamResponse[] => []),
         ])
-            .then(([projectData, tasksData, membersData, teamsData]) => {
+            .then(([tasksData, membersData, teamsData]) => {
                 if (cancelled) return
-                setProject(projectData)
                 setTasks(tasksData.items)
                 setTotalTaskCount(tasksData.totalCount)
                 setMembers(membersData)
@@ -92,24 +90,19 @@ export function ProjectBoardPage() {
         )
     }
 
-    if (loadError || !project) {
+    if (loadError) {
         return (
             <div className="text-center py-24">
-                <p className="text-app-bug text-sm mb-3">{loadError || 'Project not found.'}</p>
-                <div className="flex items-center justify-center gap-4 text-sm">
-                    <button
-                        onClick={() => {
-                            setIsLoading(true)
-                            setAttempt((n) => n + 1)
-                        }}
-                        className="text-app-accent hover:underline"
-                    >
-                        Try again
-                    </button>
-                    <Link to="/projects" className="text-app-muted hover:text-app-text">
-                        Back to projects
-                    </Link>
-                </div>
+                <p className="text-app-bug text-sm mb-3">{loadError}</p>
+                <button
+                    onClick={() => {
+                        setIsLoading(true)
+                        setAttempt((n) => n + 1)
+                    }}
+                    className="text-sm text-app-accent hover:underline"
+                >
+                    Try again
+                </button>
             </div>
         )
     }
@@ -130,23 +123,10 @@ export function ProjectBoardPage() {
     }
 
     return (
-        <div className="flex flex-col min-h-full">
-            <div className="px-6 py-4 border-b border-app-border bg-app-surface">
-                <div className="flex items-center gap-2 text-sm text-app-muted mb-2">
-                    <Link to="/projects" className="hover:text-app-text transition-colors">
-                        Projects
-                    </Link>
-                    <ChevronRight className="w-3 h-3" />
-                    <span className="text-app-text font-medium">{project.name}</span>
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <h1 className="text-2xl font-semibold tracking-tight text-app-text">{project.name}</h1>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${projectStatusStyles[project.status]}`}>
-                            {project.status}
-                        </span>
-                        <span className="text-xs text-app-muted">{project.teamName}</span>
-                    </div>
+        <div className="flex flex-col flex-1">
+            {/* The button lives in the layout's header; the portal draws it there. */}
+            {headerActions &&
+                createPortal(
                     <button
                         onClick={() => setIsModalOpen(true)}
                         disabled={isArchived}
@@ -154,11 +134,9 @@ export function ProjectBoardPage() {
                         className="bg-app-accent text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-app-accentHover transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                         <Plus className="w-4 h-4" /> New Task
-                    </button>
-                </div>
-            </div>
-
-            <ProjectTabs projectId={project.id} active="board" />
+                    </button>,
+                    headerActions,
+                )}
 
             {selectedTaskId !== null && !selectedTask && (
                 <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-app-progress/30 bg-app-progress/10 px-3 py-2 text-sm text-app-progress">

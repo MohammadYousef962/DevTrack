@@ -1,30 +1,28 @@
-import { Link } from 'react-router-dom'
-
-interface ProjectTabsProps {
-    projectId: number
-    active: 'board' | 'activity' | 'settings'
-}
+import { NavLink } from 'react-router-dom'
 
 const tabs = [
-    { key: 'board', label: 'Board', suffix: '' },
-    { key: 'activity', label: 'Activity', suffix: '/activity' },
-    { key: 'settings', label: 'Settings', suffix: '/settings' },
-] as const
+    { label: 'Board', suffix: '', end: true },
+    { label: 'Activity', suffix: '/activity', end: false },
+    { label: 'Settings', suffix: '/settings', end: false },
+]
 
-export function ProjectTabs({ projectId, active }: ProjectTabsProps) {
+export function ProjectTabs({ projectId }: { projectId: number }) {
     return (
         <div className="px-6 flex items-center gap-6 border-b border-app-border bg-app-surface text-sm font-medium">
             {tabs.map((tab) => (
-                <Link
-                    key={tab.key}
+                <NavLink
+                    key={tab.label}
                     to={`/projects/${projectId}${tab.suffix}`}
-                    className={`py-3 border-b-2 transition-colors ${active === tab.key
+                    end={tab.end}
+                    className={({ isActive }) =>
+                        `py-3 border-b-2 transition-colors ${isActive
                             ? 'border-app-accent text-app-text'
                             : 'border-transparent text-app-muted hover:text-app-text'
-                        }`}
+                        }`
+                    }
                 >
                     {tab.label}
-                </Link>
+                </NavLink>
             ))}
         </div>
     )

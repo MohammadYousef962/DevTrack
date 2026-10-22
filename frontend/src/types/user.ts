@@ -16,7 +16,6 @@ export interface UserLookupResponse {
 
 export interface UpdateProfileRequest {
     fullName: string
-    profileImageUrl: string | null
 }
 
 export interface ChangePasswordRequest {

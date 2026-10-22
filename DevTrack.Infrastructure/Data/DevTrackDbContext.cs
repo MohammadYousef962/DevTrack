@@ -17,7 +17,7 @@ public class DevTrackDbContext : DbContext
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
-
+    public DbSet<UserAvatar> UserAvatars => Set<UserAvatar>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DevTrackDbContext).Assembly);

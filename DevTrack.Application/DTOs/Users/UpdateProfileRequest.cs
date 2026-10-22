@@ -7,8 +7,4 @@ public class UpdateProfileRequest
     [Required(ErrorMessage = "Full name is required.")]
     [MaxLength(150, ErrorMessage = "Full name cannot exceed 150 characters.")]
     public string FullName { get; set; } = string.Empty;
-
-    [Url(ErrorMessage = "Profile image must be a valid URL.")]
-    [MaxLength(2048, ErrorMessage = "Profile image URL cannot exceed 2048 characters.")]
-    public string? ProfileImageUrl { get; set; }
 }

@@ -312,6 +312,28 @@ namespace DevTrack.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("DevTrack.Domain.Entities.UserAvatar", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserAvatars");
+                });
+
             modelBuilder.Entity("DevTrack.Domain.Entities.ActivityLog", b =>
                 {
                     b.HasOne("DevTrack.Domain.Entities.Project", "Project")
@@ -433,6 +455,15 @@ namespace DevTrack.Infrastructure.Migrations
                     b.Navigation("Team");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DevTrack.Domain.Entities.UserAvatar", b =>
+                {
+                    b.HasOne("DevTrack.Domain.Entities.User", null)
+                        .WithOne()
+                        .HasForeignKey("DevTrack.Domain.Entities.UserAvatar", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("DevTrack.Domain.Entities.Project", b =>
