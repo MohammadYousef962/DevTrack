@@ -11,6 +11,7 @@ using DevTrack.API.OpenApi;
 using Scalar.AspNetCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -30,6 +31,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         return new BadRequestObjectResult(response);
     };
 });
+
 // App configuration
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
@@ -44,18 +46,23 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+
 // JWT authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()!;
-builder.Services.AddControllers();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevTrackFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(
+                  "http://localhost:5173",
+                  "https://devtrack.tryasp.net"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -73,7 +80,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
@@ -88,6 +95,7 @@ builder.Services.AddOpenApi(options =>
     });
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
+
 // Add Entity Framework services
 builder.Services.AddDbContext<DevTrackDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -100,24 +108,31 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors("DevTrackFrontend");
 app.UseAuthentication();
-
 app.UseAuthorization();
+
+// Serve static files from wwwroot (React frontend bundle)
+app.UseStaticFiles();
 
 app.MapControllers();
 
-if (app.Environment.IsDevelopment())
+// Fallback for React Router client-side routing on page refresh
+app.MapFallbackToFile("index.html");
+
+// Automatically apply database migrations and seed the production admin account on startup
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<DevTrackDbContext>();
     await db.Database.MigrateAsync();
 
     var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-    await DbSeeder.SeedAsync(db, passwordHasher);
+    await DbSeeder.SeedAsync(db, passwordHasher, builder.Configuration, allowDefaults: app.Environment.IsDevelopment());
 }
 
 app.Run();
+
 public partial class Program { }

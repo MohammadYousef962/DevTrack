@@ -31,7 +31,7 @@ bld/
 [Oo]bj/
 [Oo]ut/
 [Ll]og/
-[Ll]ogs/
+[Ll]ogs/	
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+*.publishSettings
+*.pubxml.user
+appsettings.production.json

@@ -5,7 +5,7 @@ export const SESSION_KEY = 'devtrack_session'
 export const SESSION_EXPIRED_EVENT = 'devtrack:session-expired'
 
 const apiClient = axios.create({
-    baseURL: 'http://localhost:5055/api',
+    baseURL: import.meta.env.PROD ? '/api' : 'http://localhost:5055/api',
 })
 
 apiClient.interceptors.request.use((config) => {
