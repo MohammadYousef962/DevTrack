@@ -4,6 +4,8 @@
 
 A role-based project management platform: teams, projects, a Kanban board, tasks with comments, an activity feed and a dashboard. The back end is an ASP.NET Core Web API, the front end is a React + TypeScript single-page app.
 
+**Live demo: <https://devtrack.tryasp.net>**. It runs on a free hosting plan, so the first load can be slow and the data should be treated as disposable. Register an account to try it.
+
 <!--
 Add two or three screenshots here, for example:
 ![Dashboard](docs/screenshots/dashboard.png)
@@ -110,7 +112,8 @@ Open <http://localhost:5173> and sign in with the admin account above, or regist
 | `Jwt:SigningKey` | User Secrets, or the `Jwt__SigningKey` environment variable | Required. Never committed. |
 | `Jwt:Issuer`, `Jwt:Audience` | `appsettings.json` | `DevTrackApi` and `DevTrackClient`. |
 | `Jwt:AccessTokenExpirationMinutes` | `appsettings.json` | 60. |
-| CORS origin | `DevTrack.API/Program.cs` | `http://localhost:5173`. Change it if the front end is served elsewhere. |
+| CORS origins | `DevTrack.API/Program.cs` | The local dev server (`http://localhost:5173`) and the live site. Add an origin here if the front end is served from somewhere else. |
+| `AdminSeed:Email`, `AdminSeed:Password`, `AdminSeed:FullName` | Host configuration | Production only: the first admin account. The password must be at least 12 characters. See [Deployment](#deployment). |
 | API base URL | `frontend/src/api/client.ts` | `http://localhost:5055/api`. Currently hard-coded for local development. |
 
 To run against a different SQL Server, for example the container image CI uses:
@@ -141,6 +144,16 @@ The front end is checked with ESLint and the TypeScript build (`npm run lint`, `
 
 Dependabot checks NuGet, npm and GitHub Actions weekly (`.github/dependabot.yml`), grouping routine minor and patch updates into one pull request per ecosystem.
 
+## Deployment
+
+The live demo runs on the free plan of [MonsterASP.NET](https://www.monsterasp.net) (Windows, IIS and SQL Server).
+
+- **One site.** The API serves the built React app from `wwwroot` and falls back to `index.html` for client-side routes, so there is a single origin and the browser makes same-site requests to `/api`.
+- **Release build.** The front end is built with `npm run build` in `frontend/`, its output goes into `DevTrack.API/wwwroot`, and the API project is then published (Web Deploy from Visual Studio). Pushing to GitHub runs CI but does not deploy; the live site is updated by publishing again.
+- **Configuration lives on the host, not in the repo.** The connection string, `Jwt:SigningKey` and the first-admin settings are supplied on the server.
+- **Startup.** The API applies pending migrations. It creates the first admin only when no admin exists and `AdminSeed:Email` and `AdminSeed:Password` are set. Without them it creates none, instead of falling back to a default account. The well-known development admin exists only in the Development environment.
+- **Free-tier limits.** 256 MB of RAM, a 1 GB database, and no automatic backups or guarantees. That is fine for a demo, not for production.
+
 ## API overview
 
 All routes are under `/api` and require a bearer token except registration and login. The Scalar page lists every endpoint with its request and response shapes.
@@ -169,16 +182,17 @@ These are known and deliberate for now:
 
 - **Sessions.** There are no refresh tokens, so sessions end after 60 minutes. Tokens can't be revoked, so a role change or deactivation takes effect at the next sign-in.
 - **No rate limiting** on the login, register or change-password endpoints.
-- **Seeded admin.** The development admin has a known password, and there is no production bootstrap flow yet.
+- **Seeded admin.** The development admin has a known password and exists only in Development. In production the first admin comes from settings, and none is created without them.
 - **Board size.** A project's board shows its newest 200 tasks. The page says so when more exist.
 - **Memberships.** Removing someone from a team doesn't remove their project memberships, and removed project members keep edit rights on tasks and comments they created. People on a team but not on a project can open the project page but not its tasks or activity.
 - **Paging.** The task list and project activity endpoints don't cap the page size, and `GET /api/users` isn't paginated.
 - **Profile pictures** are uploaded and stored in the database. Only their owner and administrators (on the Admin page) see them; everywhere else shows initials. Uploads are checked for file type and size but not yet for pixel dimensions.
-- **Configuration.** The API URL and CORS origin are hard-coded for local development.
+- **Configuration.** The allowed CORS origins are listed in `Program.cs` rather than read from settings.
+- **Hosting.** The demo runs on a free plan with no backups and no guarantees, so it can be slow or unavailable, and its data should be treated as disposable.
 
 ## Roadmap
 
-- A hosted demo with environment-based configuration
+- Reading CORS origins and other host-specific values from settings
 - Refresh tokens and token revocation
 - Rate limiting on authentication endpoints
 - Pixel-dimension checks for uploaded pictures, and showing pictures to teammates (assignees, comments, members)
