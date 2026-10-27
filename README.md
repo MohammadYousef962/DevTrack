@@ -6,6 +6,7 @@ A role-based project management platform: teams, projects, a Kanban board, tasks
 
 **Live demo: <https://devtrack.tryasp.net>**. It runs on a free hosting plan, so the first load can be slow and the data should be treated as disposable. Register an account to try it.
 
+<img width="1918" height="905" alt="image" src="https://github.com/user-attachments/assets/934e9de0-086f-4181-9c62-14ce1cbc76ec" />
 <img width="1916" height="909" alt="image" src="https://github.com/user-attachments/assets/bded0e45-2b23-48cc-8025-c3c299b84503" />
 <img width="1918" height="904" alt="image" src="https://github.com/user-attachments/assets/f949dbfb-3387-4173-9028-a6fcc023eb73" />
 
